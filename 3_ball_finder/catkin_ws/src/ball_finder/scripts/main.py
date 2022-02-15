@@ -21,7 +21,7 @@ class Detector:
         self.lower_bound = 150;
         self.image_topic = rospy.get_param('~image', "/camera/rgb/image_raw")
         rospy.Subscriber(self.image_topic, Image, self.handle_image)
-        #rospy.Subscriber('/scan', LaserScan, self.handle_scan)
+        rospy.Subscriber('/scan', LaserScan, self.handle_scan)
         
     def handle_image(self, msg):
         
@@ -49,7 +49,7 @@ class Detector:
         avg = sum / len(c)
         print(len(c), " ", avg)
 
-        if len(c) >= 1000: #passes the test
+        if len(c) >= 1200: #passes the test
             image[:, int(avg)] = (0, 255, 0)
             self.bearing = int(avg)
         else:
@@ -60,13 +60,15 @@ class Detector:
         # Find the average column of the bright yellow pixels
         # and store as self.bearing. Store -1 if there are no
         # bright yellow pixels in the image.
-        # Feel free to change the values in the image variable
-        # in order to see what is going on
-        # Here we publish the modified image; it can be
-        # examined by running image_view
-        # def handle_scan(self, msg):
-        # If the bearing is valid, store the corresponding range
-        # in self.distance. Decide what to do if range is NaN.
+
+        def handle_scan(self, msg):
+            if self.bearing >= 0:
+                print('Scan something')
+                self.distance = 5
+            else:
+                self.distance = -1
+        #If the bearing is valid, store the corresponding range
+        #in self.distance. Decide what to do if range is NaN.
 
     def start(self):
         rate = rospy.Rate(10)
@@ -74,7 +76,7 @@ class Detector:
             rate.sleep()
             location = BallLocation()
             location.bearing = self.bearing
-            #location.distance = self.distance
+            location.distance = self.distance
             location.distance = 0
             self.locpub.publish(location)
             
