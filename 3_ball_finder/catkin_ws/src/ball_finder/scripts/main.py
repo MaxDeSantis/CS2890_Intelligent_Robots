@@ -3,6 +3,7 @@ import roslib
 import rospy
 import numpy as np
 import cv2
+import math
 from sensor_msgs.msg import Image, LaserScan
 from ball_finder.msg import BallLocation
 # from assn3.msg import BallLocation
@@ -17,8 +18,10 @@ class Detector:
         self.bridge = CvBridge()
         self.bearing = -1
         self.distance = -1
-        self.upper_bound = 70;
-        self.lower_bound = 150;
+        self.upper_bound = 70
+        self.lower_bound = 150
+        self.kernel_size = 8
+        
         self.image_topic = rospy.get_param('~image', "/camera/rgb/image_raw")
         rospy.Subscriber(self.image_topic, Image, self.handle_image)
         rospy.Subscriber('/scan', LaserScan, self.handle_scan)
@@ -36,20 +39,20 @@ class Detector:
         except CvBridgeError as e:
             print(e)# Not sure if this is going to work as intended.
 
+        kernel = np.ones((self.kernel_size, self.kernel_size), np.float32) / (self.kernel_size * self.kernel_size) # introduces blur to remove noise, not sure if good idea
+        im_hsv = cv2.filter2D(im_hsv, -1, kernel)
         
-        yellow = np.where( (im_hsv[:, :, 0] < 80) & (im_hsv[:, :, 1] >= 90) & (im_hsv[:, :, 2] >= 90))
+        yellow = np.where( (im_hsv[:, :, 0] <= 70) & (im_hsv[:, :, 0] >= 0) & (im_hsv[:, :, 1] >= 100) & (im_hsv[:, :, 2] >= 130))
         r, c = yellow
-        kernel = np.ones((4, 4), np.float32) / 16 # introduces blur to remove noise, not sure if good idea
-
-        image[r, c] = (0, 0, 0)
-        image = cv2.filter2D(image, -1, kernel)
+        
+        image[r, c] = (255, 0, 0)
+        
         sum = 0
         for i in c:
             sum = sum + i
         avg = sum / len(c)
-        print(len(c), " ", avg)
 
-        if len(c) >= 1200: #passes the test
+        if len(c) >= 600: #passes the test
             image[:, int(avg)] = (0, 255, 0)
             self.bearing = int(avg)
         else:
@@ -61,12 +64,15 @@ class Detector:
         # and store as self.bearing. Store -1 if there are no
         # bright yellow pixels in the image.
 
-        def handle_scan(self, msg):
-            if self.bearing >= 0:
-                print('Scan something')
-                self.distance = 5
+    def handle_scan(self, msg):
+        if self.bearing >= 0:
+            dist = msg.ranges[-self.bearing]
+            if not math.isnan(dist):
+                self.distance = dist
             else:
                 self.distance = -1
+        else:
+            self.distance = -1
         #If the bearing is valid, store the corresponding range
         #in self.distance. Decide what to do if range is NaN.
 
@@ -77,10 +83,9 @@ class Detector:
             location = BallLocation()
             location.bearing = self.bearing
             location.distance = self.distance
-            location.distance = 0
             self.locpub.publish(location)
-            
-            
+         
+
 rospy.init_node('ball_detector')
 detector = Detector()
 detector.start()

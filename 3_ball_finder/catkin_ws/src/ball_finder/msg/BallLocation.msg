@@ -1,2 +1,2 @@
 int32 bearing
-int32 distance
+float32 distance
