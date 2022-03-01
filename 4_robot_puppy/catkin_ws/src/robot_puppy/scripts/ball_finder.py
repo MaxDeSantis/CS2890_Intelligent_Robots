@@ -18,7 +18,7 @@ class Detector:
         self.bearing = -1
         self.distance = -1
         self.upper_bound = 70
-        self.lower_bound = 150
+        self.lower_bound = 170
         self.kernel_size = 8
         
         self.image_topic = rospy.get_param('~image', "/camera/rgb/image_raw")
@@ -41,17 +41,18 @@ class Detector:
         kernel = np.ones((self.kernel_size, self.kernel_size), np.float32) / (self.kernel_size * self.kernel_size) # introduces blur to remove noise, not sure if good idea
         im_hsv = cv2.filter2D(im_hsv, -1, kernel)
         
-        yellow = np.where( (im_hsv[:, :, 0] <= 70) & (im_hsv[:, :, 0] >= 0) & (im_hsv[:, :, 1] >= 100) & (im_hsv[:, :, 2] >= 130))
+        yellow = np.where( (im_hsv[:, :, 0] <= 70) & (im_hsv[:, :, 0] >= 0) & (im_hsv[:, :, 1] >= 130) & (im_hsv[:, :, 2] >= 130))
         r, c = yellow
         
         image[r, c] = (255, 0, 0)
         
-        sum = 0
-        for i in c:
-            sum = sum + i
-        avg = sum / len(c)
+        
 
-        if len(c) >= 600: #passes the test
+        if len(c) >= 900: #passes the test
+            sum = 0
+            for i in c:
+                sum = sum + i
+            avg = sum / len(c)
             image[:, int(avg)] = (0, 255, 0)
             self.bearing = int(avg)
         else:
