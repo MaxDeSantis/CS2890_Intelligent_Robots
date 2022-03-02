@@ -18,7 +18,7 @@ class Detector:
         self.bearing = -1
         self.distance = -1
         self.upper_bound = 70
-        self.lower_bound = 170
+        self.lower_bound = 200
         self.kernel_size = 8
         
         self.image_topic = rospy.get_param('~image', "/camera/rgb/image_raw")
@@ -38,7 +38,7 @@ class Detector:
         except CvBridgeError as e:
             print(e)# Not sure if this is going to work as intended.
 
-        kernel = np.ones((self.kernel_size, self.kernel_size), np.float32) / (self.kernel_size * self.kernel_size) # introduces blur to remove noise, not sure if good idea
+        kernel = np.ones((self.kernel_size, self.kernel_size), np.float32) / (self.kernel_size * self.kernel_size)
         im_hsv = cv2.filter2D(im_hsv, -1, kernel)
         
         yellow = np.where( (im_hsv[:, :, 0] <= 70) & (im_hsv[:, :, 0] >= 0) & (im_hsv[:, :, 1] >= 130) & (im_hsv[:, :, 2] >= 130))

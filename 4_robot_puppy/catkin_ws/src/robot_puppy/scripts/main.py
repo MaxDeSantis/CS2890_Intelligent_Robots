@@ -36,9 +36,11 @@ class PID:
 
         # Clamp output and handle integral windup
         if control > self.max:
+            print("clamping to max: ", control)
             control = min(control, self.max)
             self.integral -= error
         elif control < self.min:
+            print("clamping to min: ", control)
             control = max(control, self.min)
             self.integral -= error
 
@@ -64,22 +66,20 @@ class Puppy:
         self.state = self.RobotState.state_stop
         self.wait_time = [None, None]
         self.waiting = False
-        self.wait_delay = 3.0
-        self.missed_cycles = 0
-        self.max_missed_cycles = 5
+        self.wait_delay = 1.5
         self.missed_measurements = 0
         self.max_missed_measurements = 5
         self.measure_low_pass_gain = 0.2
 
         # PID control clamp limits
-        self.bearing_control_max = .7
-        self.bearing_control_min = -.7
-        self.dist_control_max = .2
-        self.dist_control_min = -.08
+        self.bearing_control_max = 1.5
+        self.bearing_control_min = -1.5
+        self.dist_control_upper = .7
+        self.dist_control_lower = -.1
 
         # PID init and gains
-        self.bearing_pid = PID(0.002, 0, .001, self.bearing_control_max, -self.bearing_control_max)
-        self.distance_pid = PID(-0.15, 0, .1, self.dist_control_max, self.dist_control_min)
+        self.bearing_pid = PID(0.005, 0.0, .002, self.bearing_control_max, -self.bearing_control_max)
+        self.distance_pid = PID(-0.25, 0, 0.04, self.dist_control_upper, self.dist_control_lower)
         
         # Measured values
         self.dist_measured = 0
@@ -87,12 +87,13 @@ class Puppy:
         self.last_approached_side = self.RobotSide.side_left
 
         # Desired values
-        self.dist_setpoint = .6
+        self.dist_setpoint = 1.0
         self.bearing_setpoint = 320
 
         # Error thresholds to enter KICK state
-        self.dist_acceptable_error = .4
-        self.bearing_acceptable_error = 20
+        self.dist_acceptable_error = .1
+        self.bearing_acceptable_error = 10
+        self.kick_duration = 1.5
 
         # Puppy debugging
         self.setpoint_pub = rospy.Publisher('/puppy/setpoint', BallLocation, queue_size=1)
@@ -104,35 +105,24 @@ class Puppy:
         rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, self.HandleBumped)
     
     # Update internal trackers of ball location for FSM's use
-    def HandleBallLocation(self, msg):
-
-        if msg.distance < 0 or msg.bearing < 0:
-            print("Missed Measurement")
-            self.missed_measurements += 1
-
-            # Ensure we are in the search state if missing too many measurements
-            if self.missed_measurements > self.max_missed_measurements:
-                self.state = self.RobotState.state_search
-                self.missed_measurements = 0
-                
+    def HandleBallLocation(self, msg): 
 
         # New distance measurement, send through low pass filter
-        if msg.distance > 0:
-            self.prev_distance_measured = self.dist_measured
-            self.dist_measured = (msg.distance * self.measure_low_pass_gain) + self.prev_distance_measured * (1 - self.measure_low_pass_gain)
-            self.last_distance_time = rospy.Time.now()
+        self.prev_distance_measured = self.dist_measured
+        self.dist_measured = (msg.distance * self.measure_low_pass_gain) + self.prev_distance_measured * (1 - self.measure_low_pass_gain)
+        self.last_distance_time = rospy.Time.now()
 
         # New bearing measurement, low pass filter
-        if msg.bearing > 0:
-            self.prev_bearing_measured = self.bearing_measured
-            self.bearing_measured = (msg.bearing * self.measure_low_pass_gain) + self.prev_bearing_measured * (1 - self.measure_low_pass_gain)
-            self.last_bearing_time = rospy.Time.now()
+        self.prev_bearing_measured = self.bearing_measured
+        self.bearing_measured = (msg.bearing * self.measure_low_pass_gain) + self.prev_bearing_measured * (1 - self.measure_low_pass_gain)
+        self.last_bearing_time = rospy.Time.now()
 
         
     # If bumped, transition to stop state
     def HandleBumped(self, msg):
         print("bumped!")
         self.state = self.RobotState.state_stop
+        self.waiting = False # Continue to reset wait time until bumping is stopped
 
     def TwistStopped(self):
         stopped_twist = Twist()
@@ -152,8 +142,14 @@ class Puppy:
 
     def TwistKick(self):
         kick_twist = Twist()
-        kick_twist.linear.x = 1.2
+        kick_twist.linear.x = 1.0
         kick_twist.angular.z = 0
+        return kick_twist
+    
+    def TwistKickStart(self):
+        kick_twist = Twist()
+        kick_twist.linear.x = 0.7
+        kick_twist.linear.z = 0
         return kick_twist
 
     # STOP state behavior
@@ -164,10 +160,10 @@ class Puppy:
         if not self.waiting:
             self.wait_time[0] = rospy.Time.now()
             self.waiting = True
-            twist = self.TwistStopped()
+            self.next_twist = self.TwistStopped()
         else:       
             if (self.wait_time[1] - self.wait_time[0]).to_sec() < self.wait_delay:     # Remain stopped if still waiting
-                twist = self.TwistStopped()
+                self.next_twist = self.TwistStopped()
                 
             else:                                               # Transition to searching if time has passed
                 self.waiting = False
@@ -176,47 +172,59 @@ class Puppy:
     # SEARCH state behavior
     def RobotSearch(self):
         print("SEARCH")
-        twist = self.TwistSearch()
+        self.next_twist = self.TwistSearch()
         
         # Begin approach if ball location is valid
         if self.dist_measured > 0 and self.bearing_measured > 0 and self.bearing_measured < 640:
             self.state = self.RobotState.state_approach
 
+    # APPROACH state behavior
     def RobotApproach(self):
         print("APPROACH")
-                
-        bearing_control = self.bearing_pid.GetControl(self.bearing_setpoint, self.bearing_measured, rospy.Time.now())
-        dist_control = -self.distance_pid.GetControl(self.dist_setpoint, self.dist_measured, rospy.Time.now())
-        
-        print("bc: ", bearing_control, " dc: ", dist_control)
-        print("dist: ", self.dist_measured, " bear: ", self.bearing_measured)
-                
-        twist.angular.z = bearing_control
-        twist.linear.x = dist_control
-        
-        # Switch to search if controls out of bounds, set twist to 0.
-        if abs(dist_control) > self.dist_control_max or abs(bearing_control > self.bearing_control_max):
-            self.state = self.RobotState.state_search
-            twist = self.TwistStopped()
-            
-        
-        # If errors are low enough, enter kick state
-        if abs(self.bearing_setpoint - self.bearing_measured) < self.bearing_acceptable_error and abs(self.dist_setpoint - self.dist_measured) < self.dist_acceptable_error:
-            self.state = self.RobotState.state_kick
-        
-        self.last_approached_side = self.RobotSide.side_right if (self.bearing_measured > 320) else self.RobotSide.side_left
 
+        if self.bearing_measured > 0 and self.dist_measured > 0:
+        
+            # If errors are low enough, enter kick state
+            if abs(self.bearing_setpoint - self.bearing_measured) < self.bearing_acceptable_error and self.dist_measured > .5 and abs(self.dist_setpoint - self.dist_measured) < self.dist_acceptable_error:
+                self.state = self.RobotState.state_kick
+                self.next_twist = self.TwistKickStart()
+                return
+                
+            bearing_control = self.bearing_pid.GetControl(self.bearing_setpoint, self.bearing_measured, rospy.Time.now())
+            dist_control = self.distance_pid.GetControl(self.dist_setpoint, self.dist_measured, rospy.Time.now())
+            
+            print("bc: ", bearing_control, " dc: ", dist_control)
+            print("dist: ", self.dist_measured, " bear: ", self.bearing_measured)
+                    
+            self.next_twist.angular.z = bearing_control
+            self.next_twist.linear.x = dist_control
+            
+            # Switch to search if controls out of bounds, set twist to 0.
+            #if abs(dist_control) > self.dist_control_upper or abs(bearing_control > self.bearing_control_max):
+                #self.state = self.RobotState.state_search
+            
+            self.last_approached_side = self.RobotSide.side_right if (self.bearing_measured > 320) else self.RobotSide.side_left
+        
+        elif self.missed_measurements < self.max_missed_measurements:
+            self.missed_measurements += 1
+            self.next_twist = self.prev_twist
+        else:
+            self.missed_measurements = 0
+            self.state = self.RobotState.state_search
+        
+
+    # KICK state behavior
     def RobotKick(self):
         print("KICK")
 
-        twist = self.TwistKick()
+        self.next_twist = self.TwistKick()
         self.wait_time[1] = rospy.Time.now()
 
         if not self.waiting:
             self.wait_time[0] = rospy.Time.now()
             self.waiting = True
         else:
-            if (self.wait_time[1] - self.wait_time[0]).to_sec() > 1.5:     # If 1.5s have passed, begin searching again
+            if (self.wait_time[1] - self.wait_time[0]).to_sec() > self.kick_duration:
                 self.waiting = False
                 self.state = self.RobotState.state_search
 
@@ -240,7 +248,8 @@ class Puppy:
             else:
                 print("UNKNOWN STATE")
             
-
+            
+            #self.next_twist.linear.x = 0 # don't move forward right now
             self.motor_pub.publish(self.next_twist)
             self.prev_twist = self.next_twist
             
