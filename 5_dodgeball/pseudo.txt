@@ -1,0 +1,14 @@
+
+
+1. Search for ball
+2. Approach to 1.5m of ball
+3. Compute intermediate and final goal positions.
+    - Intermediate 1.5 to one side of ball
+    - Goal 1.5m behind ball
+4. Navigate to intermediate
+5. Navigate to goal
+6. Turn and face ball
+7. Kick ball!
+
+Use robot's odometry in /odom to get robot's position and rotation.
+This won't be perfectly accurate, but will be okay. Maybe can improve?
