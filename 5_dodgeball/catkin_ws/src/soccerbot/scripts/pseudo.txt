@@ -12,3 +12,13 @@
 
 Use robot's odometry in /odom to get robot's position and rotation.
 This won't be perfectly accurate, but will be okay. Maybe can improve?
+
+SoccerBot
+- Manages state machine, takes in measurements, and outputs to Kobuki
+- Run
+    - State Machine setting
+- HandleBallLocation
+    - Check if valid, if not add to error?
+
+VelocityManager
+- Manage velocity of the robot using position setpoints
