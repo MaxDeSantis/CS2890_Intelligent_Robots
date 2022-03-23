@@ -21,7 +21,7 @@ class PID:
         derivative = (error - self.prev_error) / time_diff
         self.integral += error
         
-        print("set: ", setpoint, " error: ", error)
+        #print("set: ", setpoint, " error: ", error)
 
         control = (self.kp * error) + (self.ki * self.integral) + (self.kd * derivative)
 

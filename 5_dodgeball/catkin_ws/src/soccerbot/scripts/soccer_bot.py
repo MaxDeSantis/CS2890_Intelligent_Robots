@@ -4,7 +4,6 @@ from tracemalloc import stop
 from turtle import position
 
 from cv2 import sqrt
-from catkin_ws.src.soccerbot.scripts.velocity_manager import VelocityManager
 import roslib
 import rospy
 import numpy as np
@@ -16,7 +15,7 @@ from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 from kobuki_msgs.msg import BumperEvent
 import robot_pid
-
+import velocity_manager
 
 
 class SoccerBot:
@@ -36,23 +35,27 @@ class SoccerBot:
 
     def __init__(self):
         # Robot state tracking
-        self.state = self.RobotState.state_stop
+        self.state = self.RobotState.stop
         self.wait_time = [None, None]
         self.waiting = False
         self.wait_delay = 1.5
         self.missed_measurements = 0
         self.max_missed_measurements = 5
         self.measure_low_pass_gain = 0.2
+        self.max_angle_err_before_moving = math.pi / 4.0
 
         # PID control clamp limits
         self.bearing_control_max = 1.5
         self.bearing_control_min = -1.5
-        self.dist_control_upper = .7
-        self.dist_control_lower = -.1
+        self.dist_control_upper = 1.0
+        self.dist_control_lower = -.2
+        self.max_acc_ang        = .3
+        self.max_acc_lin        = .05
 
         # PID init and gains
-        self.anglePID = robot_pid.PID(0.005, 0.0, .002, self.bearing_control_max, -self.bearing_control_max)
-        self.rangePID = robot_pid.PID(-0.25, 0, 0.04, self.dist_control_upper, self.dist_control_lower)
+        
+        self.anglePID = robot_pid.PID(0.0049, 0.0, .0016, self.bearing_control_max, -self.bearing_control_max)
+        self.rangePID = robot_pid.PID(-0.38, 0.0, 0.2, self.dist_control_upper, self.dist_control_lower)
         
         # Measured values
         self.dist_measured = 0
@@ -60,28 +63,33 @@ class SoccerBot:
         self.last_approached_side = self.RobotSide.side_left
 
         # Desired values
-        self.dist_setpoint = 1.0
-        self.bearing_setpoint = 320
+        self.dist_setpoint = 1.5
+        self.bearing_px_setpoint = 320
 
-        # Error thresholds to enter KICK state
-        self.dist_acceptable_error = .1
-        self.bearing_acceptable_error = 10
+        # Error thresholds to enter KICK 
+        self.dist_acceptable_error = .13
+        self.bearing_acceptable_error = 18
+        self.angular_vel_acceptable_error = .09
         self.kick_duration = 1.5
 
         # Velocities
         self.kick_lin_x = 1.0
         self.search_ang_z = 0.8
 
-        self.velManager = VelocityManager()
-
-        self.setpoint_pub = rospy.Publisher('/soccerbot/setpoint', BallLocation, queue_size=1)
-        self.filtered_location_pub = rospy.Publisher('/soccerbot/filtered_location', BallLocation, queue_size=1)
+        self.velManager = velocity_manager.VelocityManager(self.max_acc_ang, self.max_acc_lin)
 
         # IO - subscribe to measurements and bumper, publish movements
         self.motor_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=1)
         rospy.Subscriber('/soccerbot/ball_location', BallLocation, self.HandleBallLocation)
         rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, self.HandleBumped)
         rospy.Subscriber('/odom', Odometry, self.HandlePose)
+        
+    
+    # ----------------------------------------------------------------------------------------
+    #
+    # ROS Sub callbacks
+    #
+    # ----------------------------------------------------------------------------------------
     
     # Update internal trackers of ball location for FSM's use
     def HandleBallLocation(self, msg): 
@@ -106,12 +114,13 @@ class SoccerBot:
         self.y = msg.pose.pose.position.y
         q = (msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)
         (_, _, self.theta) = euler_from_quaternion(q)
+        #self.theta = (self.theta + math.pi) % (2*math.pi)
 
         
     # If bumped, transition to stop state
     def HandleBumped(self, msg):
         print("bumped!")
-        self.state = self.RobotState.state_stop
+        self.state = self.RobotState.stop
         self.waiting = False # Continue to reset wait time until bumping is stopped
 
 
@@ -145,50 +154,49 @@ class SoccerBot:
 
     # ----------------------------------------------------------------------------------------
     #
-    # PID Controls
+    # PID Control wrappers, intermediate + final position computations
     #
     # ----------------------------------------------------------------------------------------
 
     # Compute control value for bearing and determine if it is within margin of error. Return results.
     def ControlBearing(self, setpoint, measured):
-        print("Centering")
 
         ang_control = self.prev_twist.angular.z
         accept_ang = False
 
-        if measured > 0 and measured < 640:
-            ang_control = self.anglePID.GetControl(setpoint, measured, rospy.Time.now())
+        ang_control = self.anglePID.GetControl(setpoint, measured, rospy.Time.now())
 
         if abs(setpoint - measured) < self.bearing_acceptable_error:
             accept_ang = True
+            ang_control = 0
 
         return (ang_control, accept_ang)
 
     # Compute control value for distance and determine if it is within margin of error. Return results.
     def ControlPosition(self, setpoint, measured):
-        print("Positioning")
+
         dist_control = self.prev_twist.linear.x
         accept_dist = False
-
-        if measured > 0: # Valid distance, approach setpoint
-            dist_control = self.rangePID.GetControl(setpoint, measured, rospy.Time.now())
+        
+        dist_control = self.rangePID.GetControl(setpoint, measured, rospy.Time.now())
 
         if abs(setpoint - measured) < self.dist_acceptable_error:
             accept_dist = True
+            dist_control = 0
         
         return (dist_control, accept_dist)
 
     def ComputeNextPositions(self):
-        print("computing")
-        final_x = self.x + 3 * math.cos(self.theta)
-        final_y = self.y + 3 * math.sin(self.theta)
+        #print("computing")
+        final_x = self.x + 3.0 * math.cos(self.theta)
+        final_y = self.y + 3.0 * math.sin(self.theta)
         self.final_goal = (final_x, final_y)
 
-        intermediate_x = self.x + (3.0 * sqrt(2.0) / 2.0) * math.cos(self.theta - math.pi/4.0)
-        intermediate_y = self.y + (3.0 * sqrt(2.0) / 2.0) * math.sin(self.theta - math.pi/4.0)
-        self.intemediate_goal = (intermediate_x, intermediate_y)
+        intermediate_x = self.x + (self.dist_measured * math.sqrt(2.0)) * math.cos(self.theta - math.pi/4.0)
+        intermediate_y = self.y + (self.dist_measured * math.sqrt(2.0)) * math.sin(self.theta - math.pi/4.0)
+        self.intermediate_goal = (intermediate_x, intermediate_y)
 
-    def GetVector(from_x, from_y, to_x, to_y):
+    def GetVector(self, from_x, from_y, to_x, to_y):
         bearing = math.atan2(to_y - from_y, to_x - from_x)
         distance = math.sqrt((from_x - to_x)**2 + (from_y - to_y)**2)
         return (bearing, distance)
@@ -233,13 +241,15 @@ class SoccerBot:
 
         # Compute and acuate controls. Move to next state if errors acceptable (control functions return true)
 
-        (angular_control, acceptable_bearing)   = self.ControlBearing(320, self.bearing_measured)
-        (distance_control, acceptable_distance) = self.ControlPosition(1.5, self.dist_measured)
+        (angular_control, acceptable_bearing)   = self.ControlBearing(self.bearing_px_setpoint, self.bearing_measured)
+        (distance_control, acceptable_distance) = self.ControlPosition(self.dist_setpoint, self.dist_measured)
         self.velManager.SetDesiredVelocity(angular_control, distance_control)
 
         # Compute new points and approach them if in appropriate position
         if acceptable_bearing and acceptable_distance:
             self.ComputeNextPositions()
+            print("intermediate: ", self.intermediate_goal)
+            print("final: ", self.final_goal)
             self.state = self.RobotState.approach_intermediate
 
         # Handle losing vision of the ball while approaching. Don't call if reached accepetable bounds
@@ -248,37 +258,63 @@ class SoccerBot:
             self.state = self.RobotState.search
             self.velManager.SetDesiredVelocity(0, 0)
 
-
         if  self.bearing_measured > 0 and self.bearing_measured < 640:
             self.last_approached_side = self.RobotSide.side_right if (self.bearing_measured > 320) else self.RobotSide.side_left
         
+        print("Desired Angle: ", 320, " | Self angle: ", self.bearing_measured," | Ang ctrl: ", angular_control, " | Desired dist: ", self.dist_setpoint, " | Meas. Dist: ", self.dist_measured)
     
     # APPROACH INTERMEDIATE
     def ApproachIntermediateBehavior(self):
         print("INTERMEDIATE")
+        
 
-        (angle_at_point, range_to_point) = self.GetVector(self.x, self.y, self.intemediate_goal[0], self.intemediate_goal[1])
+        (angle_at_point, range_to_point) = self.GetVector(self.x, self.y, self.intermediate_goal[0], self.intermediate_goal[1])
+        measured_angle_diff = (self.theta - angle_at_point) #* (640.0 / math.pi)
 
-        (angle_control, accept_ang) = self.ControlBearing(angle_at_point, self.theta)
+        if abs(measured_angle_diff) > math.pi:
+            measured_angle_diff = (measured_angle_diff) % (2*math.pi)
+        print("angle_at_point: ", angle_at_point, " self.theta: ", self.theta, "measured_angle_diff: ", measured_angle_diff)
+        
+        measured_angle_diff = measured_angle_diff * (640.0/math.pi)
+        
+        (angle_control, accept_ang) = self.ControlBearing(0, measured_angle_diff)
         (range_control, accept_range) = self.ControlPosition(0, range_to_point)
 
+        print("Desired Angle: ", 0, " | angle diff: ", measured_angle_diff,  " | Range: ", range_to_point, " | Ang ctrl: ", angle_control, " | Range ctrl: ", range_control)
+        
+        if abs(angle_at_point - self.theta) > self.max_angle_err_before_moving:
+            range_control = 0
+            print("restricting movement")
+            
         self.velManager.SetDesiredVelocity(angle_control, range_control)
 
-        if accept_ang and accept_range:
+        if accept_range:
             self.state = self.state.approach_final
 
     # APPROACH FINAL
     def ApproachFinalBehavior(self):
         print("FINAL")
 
-        (angle_at_point, range_to_point) = self.GetVector(self.x, self.y, self.final_goal[0], self.final_goal[1])
+        (angle_at_point, range_to_point) = self.GetVector(self.x, self.y, self.final_goal[0] , self.final_goal[1] )
+        measured_angle_diff = (self.theta - angle_at_point) #* (640.0 / math.pi)
 
-        (angle_control, accept_ang) = self.ControlBearing(angle_at_point, self.theta)
+        if abs(measured_angle_diff) > math.pi:
+            measured_angle_diff = (measured_angle_diff) % (2*math.pi)
+            
+        print("angle_at_point: ", angle_at_point, " self.theta: ", self.theta, "measured_angle_diff: ", measured_angle_diff)
+        measured_angle_diff = measured_angle_diff * (640.0/math.pi)
+            
+        (angle_control, accept_ang) = self.ControlBearing(0, measured_angle_diff)
         (range_control, accept_range) = self.ControlPosition(0, range_to_point)
-
+        
+        if abs(angle_at_point - self.theta) > self.max_angle_err_before_moving:
+            range_control = 0
+        
+        print("Desired Angle: ", 0, " | angle diff: ", measured_angle_diff, " | Range: ", range_to_point, " | Ang ctrl: ", angle_control, " | Range ctrl: ", range_control)
+                
         self.velManager.SetDesiredVelocity(angle_control, range_control)
 
-        if accept_ang and accept_range:
+        if accept_range:
             self.state = self.state.face_ball
     
     # TURN
@@ -289,13 +325,16 @@ class SoccerBot:
 
         if self.bearing_measured < 0 or self.bearing_measured > 640:   # Ball not in view, begin turning
             self.velManager.SetDesiredVelocity(self.search_ang_z, 0)
+            print("undetected in turn")
 
         else: # Ball in view, use PID
             (bearing_control, accept_angle) = self.ControlBearing(320, self.bearing_measured)
-
+            (range_control, accept_range)   = self.ControlPosition(1, self.dist_measured)
+            print("Desired Angle: ", 320, " | Self angle: ", self.bearing_measured," | Ang ctrl: ", bearing_control, " | Desired dist: ", self.dist_setpoint, " | Meas. Dist: ", self.dist_measured)
+                    
             self.velManager.SetDesiredVelocity(bearing_control, 0)
 
-            if accept_angle:
+            if accept_angle and accept_range and abs(self.prev_twist.angular.z) <= self.angular_vel_acceptable_error:
                 self.state = self.RobotState.kick
 
 
@@ -334,7 +373,7 @@ class SoccerBot:
                 self.SearchBehavior()
             
             elif self.state == self.RobotState.approach_ball:           # Dual PID to control bearing and distance. If controls out of bounds, return to search.
-                self.RobotApproach()
+                self.ApproachBallBehavior()
 
             elif self.state == self.RobotState.approach_intermediate:   # Approach position 1.5 meters to side of robot using odometry
                 self.ApproachIntermediateBehavior()
@@ -346,26 +385,17 @@ class SoccerBot:
                 self.FaceBallBehavior()
 
             elif self.state == self.RobotState.kick:                    # Drive towards ball at 1 m/s for 1.5 seconds, or until bump sensor detected
-                self.RobotKick()
+                self.KickBehavior()
 
             else:
                 print("UNKNOWN STATE")
-            
-            self.motor_pub.publish(self.velManager.GetNextTwist())
+                
+            newTwist = Twist()
+            newTwist = self.velManager.GetNextTwist()
 
-            #self.next_twist.linear.x = 0 # don't move forward right now
+            self.motor_pub.publish(newTwist)
             
-            #self.prev_twist = self.next_twist
+            self.prev_twist = newTwist
             
-            # sp = BallLocation()
-            # sp.bearing = self.bearing_setpoint
-            # sp.distance = self.dist_setpoint
-
-            # fb = BallLocation()
-            # fb.bearing = self.bearing_measured
-            # fb.distance = self.dist_measured
-            
-            # self.setpoint_pub.publish(sp)
-            # self.filtered_location_pub.publish(fb)
             
             rate.sleep()

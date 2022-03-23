@@ -13,7 +13,10 @@ import soccer_bot
 #
 # ----------------------------------------------------------------------------------------
 
+print("test1")
 if __name__ == "__main__":
+    print("test2")
     rospy.init_node('robot_main')
     soccerBot = soccer_bot.SoccerBot()
     soccerBot.Run()
+print("test3")

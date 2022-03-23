@@ -5,14 +5,14 @@ import numpy as np
 import cv2
 import math
 from sensor_msgs.msg import Image, LaserScan
-from dodgeball.msg import BallLocation
+from soccerbot.msg import BallLocation
 from cv_bridge import CvBridge, CvBridgeError
 
 
 class Detector:
     def __init__(self):
-        self.impub = rospy.Publisher('/dodgeball/image', Image, queue_size=1)
-        self.locpub = rospy.Publisher('/dodgeball/ball_location', BallLocation, queue_size=1)
+        self.impub = rospy.Publisher('/soccerbot/image', Image, queue_size=1)
+        self.locpub = rospy.Publisher('/soccerbot/ball_location', BallLocation, queue_size=1)
 
         self.bridge = CvBridge()
         self.bearing = -1
@@ -86,6 +86,6 @@ class Detector:
             self.locpub.publish(location)
          
 
-rospy.init_node('ball_finder')
+rospy.init_node('soccerbot_ball_finder')
 detector = Detector()
 detector.start()

@@ -28,7 +28,7 @@ class VelocityManager:
 
     # Clamp desired velocity according to maximum acceleration
     def SetDesiredVelocity(self, desired_ang_z_vel, desired_lin_x_vel):
-        print("setting velocity")
+        #print("setting velocity")
         new_vel = Twist()
 
         # Clamp angular
@@ -66,5 +66,5 @@ class VelocityManager:
 
     # Returns final twist to SoccerBot for actuation in Run loop
     def GetNextTwist(self):
-        print("Returning next twist")
+        #print("Returning next twist")
         return self._nextTwist
