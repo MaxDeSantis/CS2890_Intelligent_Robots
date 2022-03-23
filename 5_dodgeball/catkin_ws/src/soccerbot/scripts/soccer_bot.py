@@ -42,7 +42,8 @@ class SoccerBot:
         self.missed_measurements = 0
         self.max_missed_measurements = 5
         self.measure_low_pass_gain = 0.2
-        self.max_angle_err_before_moving = math.pi / 4.0
+        self.max_angle_err_before_moving = math.pi / 6.0
+        
 
         # PID control clamp limits
         self.bearing_control_max = 1.5
@@ -54,8 +55,8 @@ class SoccerBot:
 
         # PID init and gains
         
-        self.anglePID = robot_pid.PID(0.0049, 0.0, .0016, self.bearing_control_max, -self.bearing_control_max)
-        self.rangePID = robot_pid.PID(-0.38, 0.0, 0.2, self.dist_control_upper, self.dist_control_lower)
+        self.anglePID = robot_pid.PID(0.0056, 0.0, .0016, self.bearing_control_max, -self.bearing_control_max)
+        self.rangePID = robot_pid.PID(-0.44, 0.0, 0.2, self.dist_control_upper, self.dist_control_lower)
         
         # Measured values
         self.dist_measured = 0
@@ -67,13 +68,13 @@ class SoccerBot:
         self.bearing_px_setpoint = 320
 
         # Error thresholds to enter KICK 
-        self.dist_acceptable_error = .13
+        self.dist_acceptable_error = .15
         self.bearing_acceptable_error = 18
         self.angular_vel_acceptable_error = .09
         self.kick_duration = 1.5
 
         # Velocities
-        self.kick_lin_x = 1.0
+        self.kick_lin_x = 1.3
         self.search_ang_z = 0.8
 
         self.velManager = velocity_manager.VelocityManager(self.max_acc_ang, self.max_acc_lin)
@@ -115,6 +116,8 @@ class SoccerBot:
         q = (msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w)
         (_, _, self.theta) = euler_from_quaternion(q)
         #self.theta = (self.theta + math.pi) % (2*math.pi)
+        
+        self.last_ang_vel = msg.twist.twist.angular.z
 
         
     # If bumped, transition to stop state
@@ -123,34 +126,6 @@ class SoccerBot:
         self.state = self.RobotState.stop
         self.waiting = False # Continue to reset wait time until bumping is stopped
 
-
-    # ----------------------------------------------------------------------------------------
-    #
-    # Default Twists
-    #
-    # ----------------------------------------------------------------------------------------
-
-    def TwistStopped(self):
-        stopped_twist = Twist()
-        stopped_twist.angular.z = 0
-        stopped_twist.linear.x = 0
-        return stopped_twist
-
-    def TwistSearch(self):
-        search_twist = Twist()
-        search_twist.linear.x = 0
-        search_twist.angular.z = .8
-        
-        if self.last_approached_side == self.RobotSide.side_right:
-            search_twist.angular.z *= -1
-            
-        return search_twist
-
-    def TwistKick(self):
-        kick_twist = Twist()
-        kick_twist.linear.x = 1.0
-        kick_twist.angular.z = 0
-        return kick_twist
 
     # ----------------------------------------------------------------------------------------
     #
@@ -171,6 +146,7 @@ class SoccerBot:
             ang_control = 0
 
         return (ang_control, accept_ang)
+        
 
     # Compute control value for distance and determine if it is within margin of error. Return results.
     def ControlPosition(self, setpoint, measured):
@@ -185,6 +161,17 @@ class SoccerBot:
             dist_control = 0
         
         return (dist_control, accept_dist)
+        
+    # Gets angle within -pi to pi, with correct direction and smaller side
+    def GetCorrectAngleDiff(self, desired, actual):
+        angle_diff = (actual - desired)
+
+        if angle_diff > math.pi:
+            angle_diff = (angle_diff) % (-2*math.pi)
+        elif angle_diff < -math.pi:
+            angle_diff = (angle_diff) % (2*math.pi)
+        
+        return angle_diff
 
     def ComputeNextPositions(self):
         #print("computing")
@@ -195,6 +182,16 @@ class SoccerBot:
         intermediate_x = self.x + (self.dist_measured * math.sqrt(2.0)) * math.cos(self.theta - math.pi/4.0)
         intermediate_y = self.y + (self.dist_measured * math.sqrt(2.0)) * math.sin(self.theta - math.pi/4.0)
         self.intermediate_goal = (intermediate_x, intermediate_y)
+        
+        self.original_detected_angle = self.theta
+
+        if self.theta >= 0:
+            self.final_turn_angle = self.theta - math.pi
+        else:
+            self.final_turn_angle = self.theta + math.pi
+            
+        print("original angle: ", self.theta)
+        print("reverse. original angle: ", self.final_turn_angle)
 
     def GetVector(self, from_x, from_y, to_x, to_y):
         bearing = math.atan2(to_y - from_y, to_x - from_x)
@@ -269,26 +266,20 @@ class SoccerBot:
         
 
         (angle_at_point, range_to_point) = self.GetVector(self.x, self.y, self.intermediate_goal[0], self.intermediate_goal[1])
-        measured_angle_diff = (self.theta - angle_at_point) #* (640.0 / math.pi)
-
-        if abs(measured_angle_diff) > math.pi:
-            measured_angle_diff = (measured_angle_diff) % (2*math.pi)
-        print("angle_at_point: ", angle_at_point, " self.theta: ", self.theta, "measured_angle_diff: ", measured_angle_diff)
         
-        measured_angle_diff = measured_angle_diff * (640.0/math.pi)
+        measured_angle_diff = self.GetCorrectAngleDiff(angle_at_point, self.theta) * (640.0/math.pi)
         
         (angle_control, accept_ang) = self.ControlBearing(0, measured_angle_diff)
         (range_control, accept_range) = self.ControlPosition(0, range_to_point)
 
-        print("Desired Angle: ", 0, " | angle diff: ", measured_angle_diff,  " | Range: ", range_to_point, " | Ang ctrl: ", angle_control, " | Range ctrl: ", range_control)
+        #print("Desired Angle: ", 0, " | angle diff: ", measured_angle_diff,  " | Range: ", range_to_point, " | Ang ctrl: ", angle_control, " | Range ctrl: ", range_control)
         
         if abs(angle_at_point - self.theta) > self.max_angle_err_before_moving:
             range_control = 0
-            print("restricting movement")
             
         self.velManager.SetDesiredVelocity(angle_control, range_control)
-
-        if accept_range:
+        print("range?: ", accept_range, "| angle?: ", accept_ang)
+        if accept_range and accept_ang:
             self.state = self.state.approach_final
 
     # APPROACH FINAL
@@ -296,13 +287,8 @@ class SoccerBot:
         print("FINAL")
 
         (angle_at_point, range_to_point) = self.GetVector(self.x, self.y, self.final_goal[0] , self.final_goal[1] )
-        measured_angle_diff = (self.theta - angle_at_point) #* (640.0 / math.pi)
 
-        if abs(measured_angle_diff) > math.pi:
-            measured_angle_diff = (measured_angle_diff) % (2*math.pi)
-            
-        print("angle_at_point: ", angle_at_point, " self.theta: ", self.theta, "measured_angle_diff: ", measured_angle_diff)
-        measured_angle_diff = measured_angle_diff * (640.0/math.pi)
+        measured_angle_diff = self.GetCorrectAngleDiff(angle_at_point, self.theta) * (640.0/math.pi)
             
         (angle_control, accept_ang) = self.ControlBearing(0, measured_angle_diff)
         (range_control, accept_range) = self.ControlPosition(0, range_to_point)
@@ -310,31 +296,42 @@ class SoccerBot:
         if abs(angle_at_point - self.theta) > self.max_angle_err_before_moving:
             range_control = 0
         
-        print("Desired Angle: ", 0, " | angle diff: ", measured_angle_diff, " | Range: ", range_to_point, " | Ang ctrl: ", angle_control, " | Range ctrl: ", range_control)
+        #print("Desired Angle: ", 0, " | angle diff: ", measured_angle_diff, " | Range: ", range_to_point, " | Ang ctrl: ", angle_control, " | Range ctrl: ", range_control)
                 
         self.velManager.SetDesiredVelocity(angle_control, range_control)
-
-        if accept_range:
+        print("range?: ", accept_range, "| angle?: ", accept_ang)
+        if accept_range and accept_ang:
             self.state = self.state.face_ball
     
     # TURN
     def FaceBallBehavior(self):
         print("TURN")
 
-        # Turn robot until ball is centered in view with minimal error.
-
+        # Turn to face original direction if don't see ball
+       
         if self.bearing_measured < 0 or self.bearing_measured > 640:   # Ball not in view, begin turning
-            self.velManager.SetDesiredVelocity(self.search_ang_z, 0)
+            #self.velManager.SetDesiredVelocity(self.search_ang_z, 0)
             print("undetected in turn")
-
+            measured_angle_diff = self.GetCorrectAngleDiff(self.final_turn_angle, self.theta) * (640.0/math.pi)
+            (bearing_control, accept_angle) = self.ControlBearing(0, measured_angle_diff)
+            
+            self.velManager.SetDesiredVelocity(bearing_control, 0)
+            print("Desired: ", -self.original_detected_angle, " | Act: ", self.theta, " | Orig ang diff: ", (self.theta - self.final_turn_angle), " | new ang diff: ", measured_angle_diff)
+            
+            # check if ball in view at proper angle
+            if accept_angle and (self.bearing_measured < 0 or self.bearing_measured > 640):
+                # ball not in view, return to search
+                self.state = self.state.search
+                
         else: # Ball in view, use PID
-            (bearing_control, accept_angle) = self.ControlBearing(320, self.bearing_measured)
-            (range_control, accept_range)   = self.ControlPosition(1, self.dist_measured)
+            (bearing_control, accept_angle) = self.ControlBearing(self.bearing_px_setpoint, self.bearing_measured)
+            #(range_control, accept_range)   = self.ControlPosition(1, self.dist_measured)
             print("Desired Angle: ", 320, " | Self angle: ", self.bearing_measured," | Ang ctrl: ", bearing_control, " | Desired dist: ", self.dist_setpoint, " | Meas. Dist: ", self.dist_measured)
                     
             self.velManager.SetDesiredVelocity(bearing_control, 0)
-
-            if accept_angle and accept_range and abs(self.prev_twist.angular.z) <= self.angular_vel_acceptable_error:
+            
+            print("| angle?: ", accept_angle, " : ", self.bearing_measured)
+            if accept_angle and abs(self.last_ang_vel) <= self.angular_vel_acceptable_error:
                 self.state = self.RobotState.kick
 
 
