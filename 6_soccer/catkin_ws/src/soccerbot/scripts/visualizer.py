@@ -1,0 +1,1 @@
+# Visualize everything's position using an image stream
