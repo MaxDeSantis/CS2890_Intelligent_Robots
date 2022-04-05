@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 # Main FSM and entry point
 
 # General
 import rospy
-from enum import Enum
+import enum
 
 # SoccerBot management
 import action_manager
@@ -20,7 +21,7 @@ import game_state
 
 class SoccerBot:
 
-    class RobotState(Enum):
+    class RobotState(enum.Enum):
         stop                    = 0,
         initial_localize        = 1
 
@@ -38,8 +39,16 @@ class SoccerBot:
 
     def RunFSM(self):
         print("run fsm")
+        while not rospy.is_shutdown():
+            rate = rospy.Rate(10)
+            
+            
+            
+            
+            
+            self.gameState.Update()
 
-        
+            rate.sleep()
 
 
 

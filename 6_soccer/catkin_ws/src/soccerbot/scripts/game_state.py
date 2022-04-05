@@ -2,10 +2,14 @@
 
 import rospy
 import math
+import cv2
+import numpy as np
 from nav_msgs.msg import Odometry
 
 from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import PoseStamped
+
+import visualizer
 
 class GameState:
 
@@ -35,6 +39,9 @@ class GameState:
         rospy.Subscriber('/soccerbot/opponent/pose', PoseStamped, self.HandleOpponentLocation)
         rospy.Subscriber('/soccerbot/opponent/goal_pose', PoseStamped, self.HandleOpponentGoalLocation)
         rospy.Subscriber('/soccerbot/goal_pose', PoseStamped, self.HandleSelfGoalLocation)
+        
+        
+        self.gameVisualizer = visualizer.SoccerVisualizer(self)
 
     def HandlePose(self, msg):
         self.soccerbot_x = msg.pose.pose.position.x
@@ -47,9 +54,9 @@ class GameState:
 
     def HandleBallLocation(self, msg):
 
-        # Check validity of reading and update
-        if not math.isnan(msg.pose.position.x):
-            print("do something")
+        self.ball_x = msg.pose.position.x
+        self.ball_y = msg.pose.position.y
+        
 
 
     def HandleOpponentLocation(self, msg):
@@ -58,5 +65,8 @@ class GameState:
         print("thing3")
     def HandleSelfGoalLocation(self, msg):
         print("thing2")
+        
+    def Update(self):
+        self.gameVisualizer.UpdateDisplay()
 
     
