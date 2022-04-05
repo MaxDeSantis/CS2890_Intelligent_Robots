@@ -1,7 +1,22 @@
 # Main FSM and entry point
 
+# General
 import rospy
 from enum import Enum
+
+# SoccerBot management
+import action_manager
+import position_manager
+import game_state
+
+
+# Overall Behavior:
+# - FSM Manages State -> compute location we want to go.
+# - Position manager implements pid controllers on theta and x, y
+# - Velocity manager implements pid controller on output velocity
+# - Object finder computes position of ball, opponent, and AR tag in odom frame.
+# - Visualizer builds image to display positions of everything
+# - GameState handles state callbacks to track everything's position
 
 class SoccerBot:
 
@@ -11,14 +26,20 @@ class SoccerBot:
 
 
     def __init__(self):
-        print ("do something")
 
+        self.positionManager = position_manager.PositionManager()
+        self.actionManager = action_manager.ActionManager(self.positionManager)
+
+
+        self.gameState = game_state.GameState()
+        self.state = self.RobotState.stop
 
 
 
     def RunFSM(self):
         print("run fsm")
 
+        
 
 
 

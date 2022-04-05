@@ -3,6 +3,8 @@ import rospy
 from geometry_msgs.msg import Twist
 import robot_pid
 
+# Receive velocity setpoints and control robot.
+# - Use velocity setpoints to actuate robot -> implement some form of acceleration clamping
 
 class VelocityManager:
 
