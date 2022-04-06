@@ -143,7 +143,7 @@ class Detector:
         
         # Convert bearing and distance to Pose in camera_frame
         meters_per_pixel = self.ball_width_meters / self.ball_width_cols
-        ball_disp = (320 - bearing) * meters_per_pixel
+        ball_disp = (bearing - 320) * meters_per_pixel
         
         #print(bearing, meters_per_pixel, ball_disp, distance, ball_disp/distance)
         ball_theta = math.asin(ball_disp / distance)
