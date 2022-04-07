@@ -32,15 +32,15 @@ class SoccerVisualizer:
         #blank[:, self.image_width//2:self.image_width] = (0, 255, 0)
         
         # COLS ARE X, ROWS ARE Y
-        ball_x = int(self.gameState.ball_x*10 - self.image_width/2)
-        ball_y = int(self.gameState.ball_y*10 - self.image_height/2)
+        ball_x = int(self.gameState.ball_x*10 + self.image_width/2)
+        ball_y = int(-self.gameState.ball_y*10 + self.image_height/2)
         
         
         # This is all screwed up the way Numpy and opencv handle image definitions. Need to redo it.
-        bot_x = int(self.gameState.soccerbot_x * 10 - self.image_width/2)
-        bot_y = int(self.gameState.soccerbot_y * 10 - self.image_height/2)
-        pointer_x = int(self.gameState.soccerbot_x*10 + math.cos(self.gameState.soccerbot_theta + math.pi/2) * 2 - self.image_width/2)
-        pointer_y = int(self.gameState.soccerbot_y*10 + math.sin(self.gameState.soccerbot_theta + math.pi/2) * 2 - self.image_height/2)
+        bot_x = int(self.gameState.soccerbot_x * 10 + self.image_width/2)
+        bot_y = int(-self.gameState.soccerbot_y * 10 + self.image_height/2)
+        pointer_x = int(self.gameState.soccerbot_x*10 + math.cos(self.gameState.soccerbot_theta + math.pi/2) * 2 + self.image_width/2)
+        pointer_y = int(-self.gameState.soccerbot_y*10 - math.sin(self.gameState.soccerbot_theta + math.pi/2) * 2 + self.image_height/2)
         
         blank[int(self.image_width/2), int(self.image_height/4)] = (0, 0, 255)
         
