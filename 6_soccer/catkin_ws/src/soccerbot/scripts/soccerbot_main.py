@@ -23,30 +23,57 @@ class SoccerBot:
 
     class RobotState(enum.Enum):
         stop                    = 0,
-        initial_localize        = 1
+        recover                 = 1,
+        initial_localize        = 2,
+        search                  = 3
 
 
     def __init__(self):
-
+        
+        # Behavior management
         self.positionManager = position_manager.PositionManager()
         self.actionManager = action_manager.ActionManager(self.positionManager)
 
-
+        # State tracking
         self.gameState = game_state.GameState()
         self.state = self.RobotState.stop
 
+        # ROS Hooks
 
 
+    def StopBehavior(self):
+        print("stop")
+
+    def RecoverBehavior(self):
+        print("recovering")
+
+    def InitialLocalizeBehavior(self):
+        print("start localizing")
+
+    def SearchBehavior(self):
+        print("search")
+
+
+    
     def RunFSM(self):
         print("run fsm")
+        rate = rospy.Rate(10)
         while not rospy.is_shutdown():
-            rate = rospy.Rate(10)
             
+            # AUTONOMOUS BEHAVIOR STATE MACHINE -----------------------
+            if self.state == self.RobotState.stop:
+                self.StopBehavior()
+            elif self.state == self.RobotState.recover:
+                self.RecoverBehavior()
+            elif self.state == self.RobotState.initial_localize:
+                self.InitialLocalizeBehavior()
+            elif self.state == self.RobotState.search:
+                self.SearchBehavior()
+            else:
+                print("UNDEFINED STATE")
             
-            
-            
-            
-            self.gameState.Update()
+            # ---------------------------------------------------------
+
 
             rate.sleep()
 
