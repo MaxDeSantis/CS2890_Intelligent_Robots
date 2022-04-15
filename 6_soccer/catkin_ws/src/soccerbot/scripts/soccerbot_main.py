@@ -6,8 +6,8 @@ import rospy
 import enum
 
 # SoccerBot management
-import action_manager
-import position_manager
+import velocity_manager
+import parameter_manager
 import game_state
 
 
@@ -29,32 +29,70 @@ class SoccerBot:
 
 
     def __init__(self):
-        
-        # Behavior management
-        self.positionManager = position_manager.PositionManager()
-        self.actionManager = action_manager.ActionManager(self.positionManager)
-
         # State tracking
-        self.gameState = game_state.GameState()
-        self.state = self.RobotState.stop
+        self.state = self.RobotState.initial_localize
+        self.waiting = False
+        self.wait_time = [None, None]
+
+        # Behavior management
+        self.parameterManager = parameter_manager.ParameterManager()
+        self.gameState = game_state.GameState(self.parameterManager)
+        self.velocityManager = velocity_manager.VelocityManager(self.parameterManager, self.gameState)
 
         # ROS Hooks
+        #rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, self.HandleBumped)
 
+    # -------------------------------------------------------------------------- Callbacks
+    # Robot bumped something
+    def HandleBumped(self, msg):
+        self.state = self.RobotState.stop
 
+    # -------------------------------------------------------------------------- Behaviors
+
+    
+    # Wait 'duration' seconds, returning whether or not still waiting. Meant for use in loops.
+    def Waiting(self, duration):
+        self.wait_time[1] = rospy.Time.now()
+
+        if not self.waiting:
+            self.wait_time[0] = rospy.Time.now()
+            self.waiting = True
+        else:
+            if (self.wait_time[1] - self.wait_time[0]).to_sec() >= duration:
+                self.waiting = False
+        return self.waiting
+
+    # Stop moving and wait specified duration. Transition to recover state afterwards.
     def StopBehavior(self):
-        print("stop")
+        if not self.Waiting(self.parameterManager.STOP_DURATION):
+            self.state = self.RobotState.recover
+        self.velocityManager.SetRawVelocity(0, 0) # Stop completely
 
+    # Backup slightly then enter search mode.
     def RecoverBehavior(self):
-        print("recovering")
+        if not self.Waiting(self.parameterManager.RECOVER_DURATION):
+            self.state = self.RobotState.search
+        self.velocityManager.SetRawVelocity(0, self.parameterManager.RECOVER_LINEAR_X) # Backwards slowly
 
+    # Robot starts facing opponent goal.
     def InitialLocalizeBehavior(self):
         print("start localizing")
 
+        if self.gameState.opponent_goal_x == 0 or self.gameState.opponent_goal_y == 0:
+            print("Not found goal yet")
+        else:
+            print("Found goal")
+            # Once it finds goal: enter search state - need to find ball
+            self.state = self.RobotState.search
+        
+        self.velocityManager.SetRawVelocity(0, 0)
+
+    # Rotate until the ball is found. Begins by rotating to initial estimate.
     def SearchBehavior(self):
         print("search")
 
 
-    
+
     def RunFSM(self):
         print("run fsm")
         rate = rospy.Rate(10)
@@ -74,7 +112,8 @@ class SoccerBot:
             
             # ---------------------------------------------------------
 
-
+            print(self.gameState.opponent_ar_tag)
+            print(self.gameState.soccerbot_ar_tag)
             rate.sleep()
 
 
