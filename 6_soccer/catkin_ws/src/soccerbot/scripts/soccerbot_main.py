@@ -130,10 +130,14 @@ class SoccerBot:
             # ---------------------------------------------------------
 
             nextTwist = Twist()
+            
 
             nextTwist = self.velocityManager.GetNextTwist()
+            print(nextTwist)
+            #self.motorPub.publish(nextTwist)
+            
+            self.gameState.UpdateGoalTrackers()
 
-            self.motorPub.publish(nextTwist)
 
             rate.sleep()
 

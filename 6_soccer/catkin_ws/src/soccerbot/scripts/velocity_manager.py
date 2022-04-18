@@ -1,4 +1,3 @@
-from asyncio.windows_events import NULL
 import rospy
 
 from geometry_msgs.msg import Twist
@@ -52,10 +51,10 @@ class VelocityManager:
             limited_angular_z_vel = desired_angular_z_vel
 
         # Clamp linear
-        if desired_linear_x_vel - self.gameState.soccerbot_lin_x > self.MAX_LINEAR_ACCELERATION:
-            limited_linear_x_vel = self.gameState.soccerbot_lin_x + self.MAX_LINEAR_ACCELERATION
-        elif desired_linear_x_vel - self.gameState.soccerbot_lin_x < -self.MAX_LINEAR_ACCELERATION:
-            limited_linear_x_vel = self.gameState.soccerbot_lin_x - self.MAX_LINEAR_ACCELERATION
+        if desired_linear_x_vel - self.gameState.soccerbot_lin_x > self.parameterManager.MAX_LINEAR_ACCELERATION:
+            limited_linear_x_vel = self.gameState.soccerbot_lin_x + self.parameterManager.MAX_LINEAR_ACCELERATION
+        elif desired_linear_x_vel - self.gameState.soccerbot_lin_x < -self.parameterManager.MAX_LINEAR_ACCELERATION:
+            limited_linear_x_vel = self.gameState.soccerbot_lin_x - self.parameterManager.MAX_LINEAR_ACCELERATION
         else:
             limited_linear_x_vel = desired_linear_x_vel
 
@@ -76,7 +75,8 @@ class VelocityManager:
 
     # Compute desired velocity using PID
     def SetVelocity_PID(self, angularError, linearError, angularPID = None, linearPID = None):
-
+        
+        ang_u = lin_u = 0
         if not angularPID is None:
             ang_u = angularPID.GetControl(angularError, rospy.Time.now())
 

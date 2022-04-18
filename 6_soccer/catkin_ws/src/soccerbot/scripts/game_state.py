@@ -35,7 +35,7 @@ class GameState:
         self.ball_bearing = -1
         self.ball_distance = -1
         self.ball_guess = self.BallGuess.behind
-        self.theta_guess = self.soccerbot_theta + math.pi
+        self.theta_guess = 0 + math.pi
 
         # Track self position
         self.own_goal_x = 0
@@ -50,9 +50,12 @@ class GameState:
         rospy.Subscriber('/odom', Odometry, self.HandleSoccerbotPose)
         rospy.Subscriber('/soccerbot/ball/pose', PoseStamped, self.HandleBallLocation)
         rospy.Subscriber('/soccerbot/opponent/pose', PoseStamped, self.HandleOpponentLocation)
-        rospy.Subscriber('/soccerbot/opponent/goal_pose', PoseStamped, self.HandleOpponentGoalLocation)
-        rospy.Subscriber('/soccerbot/goal_pose', PoseStamped, self.HandleSelfGoalLocation)
+        #rospy.Subscriber('/soccerbot/opponent/goal_pose', PoseStamped, self.HandleOpponentGoalLocation)
+        #rospy.Subscriber('/soccerbot/goal_pose', PoseStamped, self.HandleSelfGoalLocation)
         rospy.Subscriber('/soccerbot/ball/measured', BallMeasured, self.HandleBallMeasurement)
+        
+        self.opponent_goal_pub = rospy.Publisher('/soccerbot/goals/opponent/pose', PoseStamped, queue_size=1)
+        self.own_goal_pub = rospy.Publisher('/soccerbot/goals/self/pose', PoseStamped, queue_size=1)
 
         self.listener = tf2_ros.Buffer()
         tf2_ros.TransformListener(self.listener)
@@ -70,8 +73,8 @@ class GameState:
         (_, _, self.soccerbot_theta) = euler_from_quaternion(q)
         
         # Get current velocities
-        self.soccerbot_lin_x = msg.pose.twist.linear.x
-        self.soccerbot_ang_z = msg.pose.twist.angular.z
+        self.soccerbot_lin_x = msg.twist.twist.linear.x
+        self.soccerbot_ang_z = msg.twist.twist.angular.z
 
     # Get new ball bearing and distance to camera
     def HandleBallMeasurement(self, msg):
@@ -97,6 +100,12 @@ class GameState:
             transform = self.listener.lookup_transform('odom', self.opponent_ar_tag, rospy.Time())
             self.opponent_goal_x = transform.transform.translation.x
             self.opponent_goal_y = transform.transform.translation.y
+            opponentGoalPose = PoseStamped()
+            opponentGoalPose.header.frame_id = "odom"
+            opponentGoalPose.pose.position.x = self.opponent_goal_x
+            opponentGoalPose.pose.position.y = self.opponent_goal_y
+            self.opponent_goal_pub.publish(opponentGoalPose)
+            
         except tf2_ros.LookupException:
             pass
         except tf2_ros.ConnectivityException:
@@ -104,3 +113,20 @@ class GameState:
         except tf2_ros.ExtrapolationException:
             pass
     
+        try:
+            transform = self.listener.lookup_transform('odom', self.soccerbot_ar_tag, rospy.Time())
+            self.own_goal_x = transform.transform.translation.x
+            self.own_goal_y = transform.transform.translation.y
+            ownGoalPose = PoseStamped()
+            ownGoalPose.header.frame_id = "odom"
+            ownGoalPose.pose.position.x = self.own_goal_x
+            ownGoalPose.pose.position.y = self.own_goal_y
+            self.own_goal_pub.publish(ownGoalPose)
+        except tf2_ros.LookupException:
+            pass
+        except tf2_ros.ConnectivityException:
+            pass
+        except tf2_ros.ExtrapolationException:
+            pass
+            
+           

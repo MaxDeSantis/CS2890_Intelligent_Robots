@@ -23,7 +23,11 @@ class ParameterManager:
         self.RANGE_MAX = 0
         self.RANGE_MIN = 0
 
-        
+        self.THETA_KP = 0
+        self.THETA_KI = 0
+        self.THETA_KD = 0
+        self.THETA_MAX = 0
+        self.THETA_MIN = 0
 
         # Stop state
         self.STOP_DURATION = 0.5

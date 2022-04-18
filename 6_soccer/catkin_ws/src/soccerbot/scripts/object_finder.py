@@ -39,7 +39,7 @@ class Detector:
         self.ball_dilate_iterations = 1
         self.ball_width_meters = .3 #meters
         
-        self.image_topic = rospy.get_param('~image', "/camera/rgb/image_raw")
+        self.image_topic = rospy.get_param('~image', "/local_image")
         rospy.Subscriber(self.image_topic, Image, self.handle_image)
         rospy.Subscriber('/scan', LaserScan, self.handle_scan)
         
@@ -132,18 +132,16 @@ class Detector:
         pose.header.frame_id = "camera_depth_frame"
         pose.header.stamp = stamp
         
-
+        # 62 deg fov
         if self.ball_width_cols > 0 and distance > 0 and 0 <= bearing <= 640:
             # Convert bearing and distance to Pose in camera_frame
-            meters_per_pixel = self.ball_width_meters / self.ball_width_cols
-            ball_disp = (bearing - 320) * meters_per_pixel
             
-            #print(bearing, meters_per_pixel, ball_disp, distance, ball_disp/distance)
-            ratio = max(1, min(-1, ball_disp / distance))
-            ball_theta = math.asin(ratio)
+            ball_angle = (320 - bearing) * (62 / 640) * (math.pi / 180) # 62 degrees for 640 pixels, pi radians per degree.
+            #ball_horizontal_disp = distance * asin(ball_angle)
+            
             #print("disp: ", ball_disp, "mpp: ", meters_per_pixel, "theta: ", ball_theta * 180/math.pi, "cols: ", self.ball_width_cols)
-            pose.pose.position.x = math.cos(ball_theta) * distance
-            pose.pose.position.y = math.sin(ball_theta) * distance
+            pose.pose.position.x = math.cos(ball_angle) * distance
+            pose.pose.position.y = math.sin(ball_angle) * distance
             pose.pose.position.z = 0
             
             # Transform to odom frame
@@ -154,7 +152,8 @@ class Detector:
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 odomPose = self.ball_pose_odom_prev
         else:
-            odomPose = self.ball_pose_odom_prev
+            if self.ball_pose_odom_prev:
+                odomPose = self.ball_pose_odom_prev
         
         return odomPose
         

@@ -1,12 +1,24 @@
 <launch>
+    
+    <arg name="marker_size" default="18.6" />
+    <arg name="max_new_marker_error" default="0.08" />
+    <arg name="max_track_error" default="0.2" />
+    <arg name="cam_image_topic" default="/local_image" />
+    <arg name="cam_info_topic" default="/camera/rgb/camera_info" />
+    <arg name="output_frame" default="/camera_rgb_optical_frame" />
+    
+    <node name="ar_track_alvar" pkg="ar_track_alvar"
+        type="individualMarkersNoKinect" respawn="false"
+        args="$(arg marker_size) $(arg max_new_marker_error)
+        $(arg max_track_error) $(arg cam_image_topic)
+        $(arg cam_info_topic) $(arg output_frame)" />
+    
+    <node name="republish" type="republish" pkg="image_transport"
+        args="compressed in:=/camera/rgb/image_raw
+        raw out:=/local_image" />
 
-    <node name="soccerbot_ball_finder" pkg="soccerbot" type="ball_finder.py" />
-    <node name="soccerbot_ball_image" pkg="image_view" type="image_view">
-        <rosparam>
-            image: /soccerbot/image
-        </rosparam>
-    </node>
+    <node name="soccerbot_object_finder" pkg="soccerbot" type="object_finder.py" />
 
-    <node name="soccerbot_main" pkg="soccerbot" type="main.py" output="screen"/>
+    <node name="soccerbot_main" pkg="soccerbot" type="soccerbot_main.py" output="screen"/>
 
 </launch>
