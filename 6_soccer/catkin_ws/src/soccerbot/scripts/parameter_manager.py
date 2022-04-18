@@ -6,10 +6,13 @@ class ParameterManager:
         
         # Goal Information
         self.OPPONENT_GOAL_ID = 0
+        self.MAX_SEARCH_ERROR_THETA = .2
 
         # Velocity management
         self.MAX_LINEAR_ACCELERATION = .1
-        self.MAX_ANGULAR_ACCELERATION = .1
+        self.MAX_ANGULAR_ACCELERATION = .2
+        self.MAX_ANGULAR_VELOCITY = 1.5
+        self.MAX_LINEAR_VELOCITY = 1.0
 
         self.BEARING_KP = 0
         self.BEARING_KI = 0
@@ -23,9 +26,9 @@ class ParameterManager:
         self.RANGE_MAX = 0
         self.RANGE_MIN = 0
 
-        self.THETA_KP = 0
+        self.THETA_KP = 1
         self.THETA_KI = 0
-        self.THETA_KD = 0
+        self.THETA_KD = .1
         self.THETA_MAX = 0
         self.THETA_MIN = 0
 

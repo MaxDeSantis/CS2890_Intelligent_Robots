@@ -4,6 +4,7 @@
 # General
 import rospy
 import enum
+import math
 
 # SoccerBot management
 import velocity_manager
@@ -88,6 +89,7 @@ class SoccerBot:
             self.state = self.RobotState.search
         
         self.velocityManager.SetRawVelocity(0, 0)
+        self.gameState.theta_guess = self.gameState.soccerbot_theta + math.pi
 
     # Rotate until the ball is found. Begins by rotating to initial estimate.
     def SearchBehavior(self):
@@ -103,10 +105,14 @@ class SoccerBot:
         elif self.gameState.ball_guess == self.gameState.BallGuess.behind:
             print("behind")
             # Turn around quick!
-            self.velocityManager.SetVelocity_PID(self.gameState.theta_guess - self.gameState.soccerbot_theta,
+            error = self.gameState.theta_guess - self.gameState.soccerbot_theta
+            self.velocityManager.SetVelocity_PID(error,
                                                 0, self.velocityManager.thetaPID, None)
+            if abs(error) <= self.parameterManager.MAX_SEARCH_ERROR_THETA:
+                self.gameState.ball_guess = self.gameState.BallGuess.none
 
         else:
+            # Track normally
             print("dont know")
 
 
@@ -134,7 +140,9 @@ class SoccerBot:
 
             nextTwist = self.velocityManager.GetNextTwist()
             print(nextTwist)
-            #self.motorPub.publish(nextTwist)
+            
+            nextTwist.linear.x = 0
+            self.motorPub.publish(nextTwist)
             
             self.gameState.UpdateGoalTrackers()
 

@@ -38,6 +38,7 @@ class Detector:
         self.ball_erode_iterations = 1
         self.ball_dilate_iterations = 1
         self.ball_width_meters = .3 #meters
+        self.ball_pose_odom_prev = PoseStamped()
         
         self.image_topic = rospy.get_param('~image', "/local_image")
         rospy.Subscriber(self.image_topic, Image, self.handle_image)
@@ -152,8 +153,8 @@ class Detector:
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 odomPose = self.ball_pose_odom_prev
         else:
-            if self.ball_pose_odom_prev:
-                odomPose = self.ball_pose_odom_prev
+            odomPose = self.ball_pose_odom_prev
+            
         
         return odomPose
         

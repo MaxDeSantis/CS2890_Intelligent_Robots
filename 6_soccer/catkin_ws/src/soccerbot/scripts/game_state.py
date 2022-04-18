@@ -35,7 +35,7 @@ class GameState:
         self.ball_bearing = -1
         self.ball_distance = -1
         self.ball_guess = self.BallGuess.behind
-        self.theta_guess = 0 + math.pi
+        self.theta_guess = None
 
         # Track self position
         self.own_goal_x = 0
@@ -80,6 +80,12 @@ class GameState:
     def HandleBallMeasurement(self, msg):
         self.ball_bearing = msg.bearing
         self.ball_distance = msg.distance
+        
+        if ball_bearing > 320:
+            self.ball_guess = self.BallGuess.right
+        elif ball_bearing < 320:
+            self.ball_guess = self.BallGuess.left
+        
 
     # Get new ball pose in odom frame
     def HandleBallLocation(self, msg):
