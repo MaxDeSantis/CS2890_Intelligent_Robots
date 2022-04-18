@@ -13,11 +13,10 @@ class PID:
         self.max = max
         self.min = min
 
-    def GetControl(self, setpoint, measured, current_time):
+    def GetControl(self, error, current_time):
         # Compute control, return
         time_diff = (current_time - self.prev_time).to_sec()
 
-        error = float(setpoint - measured)
         derivative = (error - self.prev_error) / time_diff
         self.integral += error
         

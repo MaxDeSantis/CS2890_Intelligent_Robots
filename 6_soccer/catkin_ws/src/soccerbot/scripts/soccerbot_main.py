@@ -10,6 +10,7 @@ import velocity_manager
 import parameter_manager
 import game_state
 
+from geometry_msgs.msg import Twist
 
 # Overall Behavior:
 # - FSM Manages State -> compute location we want to go.
@@ -41,6 +42,7 @@ class SoccerBot:
 
         # ROS Hooks
         #rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, self.HandleBumped)
+        self.motorPub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=1)
 
     # -------------------------------------------------------------------------- Callbacks
     # Robot bumped something
@@ -91,6 +93,21 @@ class SoccerBot:
     def SearchBehavior(self):
         print("search")
 
+        if self.gameState.ball_guess == self.gameState.BallGuess.left:
+            print("left")
+            
+        elif self.gameState.ball_guess == self.gameState.BallGuess.right:
+        
+            print("right")
+        
+        elif self.gameState.ball_guess == self.gameState.BallGuess.behind:
+            print("behind")
+            # Turn around quick!
+            self.velocityManager.SetVelocity_PID(self.gameState.theta_guess - self.gameState.soccerbot_theta,
+                                                0, self.velocityManager.thetaPID, None)
+
+        else:
+            print("dont know")
 
 
     def RunFSM(self):
@@ -112,8 +129,12 @@ class SoccerBot:
             
             # ---------------------------------------------------------
 
-            print(self.gameState.opponent_ar_tag)
-            print(self.gameState.soccerbot_ar_tag)
+            nextTwist = Twist()
+
+            nextTwist = self.velocityManager.GetNextTwist()
+
+            self.motorPub.publish(nextTwist)
+
             rate.sleep()
 
 

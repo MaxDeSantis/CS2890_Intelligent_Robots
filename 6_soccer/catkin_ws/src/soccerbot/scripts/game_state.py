@@ -1,5 +1,6 @@
 import rospy
 import enum
+import math
 import tf2_ros
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
@@ -11,9 +12,10 @@ from soccerbot.msg import BallMeasured
 class GameState:
 
     class BallGuess(enum.Enum):
-        left    = 1,
-        right   = 2,
-        behind  = 3
+        none    = 1,
+        left    = 2,
+        right   = 3,
+        behind  = 4
 
     def __init__(self, parameter_manager):
         
@@ -33,6 +35,7 @@ class GameState:
         self.ball_bearing = -1
         self.ball_distance = -1
         self.ball_guess = self.BallGuess.behind
+        self.theta_guess = self.soccerbot_theta + math.pi
 
         # Track self position
         self.own_goal_x = 0

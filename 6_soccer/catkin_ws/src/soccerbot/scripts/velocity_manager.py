@@ -1,3 +1,4 @@
+from asyncio.windows_events import NULL
 import rospy
 
 from geometry_msgs.msg import Twist
@@ -12,9 +13,29 @@ import parameter_manager
 class VelocityManager:
 
     def __init__(self, parameter_manager, game_state):
+        # State instances from soccerbot_main
         self.parameterManager   = parameter_manager
         self.gameState          = game_state
 
+        # PID
+        self.ballBearingPID     = robot_pid.PID(self.parameterManager.BEARING_KP,
+                                    self.parameterManager.BEARING_KI,
+                                    self.parameterManager.BEARING_KD,
+                                    self.parameterManager.BEARING_MAX,
+                                    self.parameterManager.BEARING_MIN)
+
+        self.rangePID           = robot_pid.PID(self.parameterManager.RANGE_KP,
+                                    self.parameterManager.RANGE_KI,
+                                    self.parameterManager.RANGE_KD,
+                                    self.parameterManager.RANGE_MAX,
+                                    self.parameterManager.RANGE_MIN)
+
+        self.thetaPID           = robot_pid.PID(self.parameterManager.THETA_KP,
+                                    self.parameterManager.THETA_KI,
+                                    self.parameterManager.THETA_KD,
+                                    self.parameterManager.THETA_MAX,
+                                    self.parameterManager.THETA_MIN)
+        
         self.cmdVel             = Twist()
 
     # Returns angular z and linear x clamped to ensure acceleration is within maximums.
@@ -53,7 +74,17 @@ class VelocityManager:
         (newVel.angular.z, newVel.linear.x) = self.LimitAcceleration(desired_angular_z_vel, desired_linear_x_vel)
         self.cmdVel = newVel
 
-    
+    # Compute desired velocity using PID
+    def SetVelocity_PID(self, angularError, linearError, angularPID = None, linearPID = None):
+
+        if not angularPID is None:
+            ang_u = angularPID.GetControl(angularError, rospy.Time.now())
+
+        if not linearPID is None:
+            lin_u = linearPID.GetControl(linearError, rospy.Time.now())
+
+        self.SetDesiredVelocity(ang_u, lin_u)
+
 
     def GetNextTwist(self):
         return self.cmdVel
