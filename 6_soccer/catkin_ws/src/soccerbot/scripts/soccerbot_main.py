@@ -10,6 +10,7 @@ import math
 import velocity_manager
 import parameter_manager
 import game_state
+import potential_field_manager
 
 from geometry_msgs.msg import Twist
 
@@ -32,18 +33,18 @@ class SoccerBot:
 
     def __init__(self):
         # State tracking
-        self.state = self.RobotState.initial_localize
-        self.waiting = False
-        self.wait_time = [None, None]
+        self.state              = self.RobotState.initial_localize
+        self.waiting            = False
+        self.wait_time          = [None, None]
 
         # Behavior management
-        self.parameterManager = parameter_manager.ParameterManager()
-        self.gameState = game_state.GameState(self.parameterManager)
-        self.velocityManager = velocity_manager.VelocityManager(self.parameterManager, self.gameState)
+        self.parameterManager   = parameter_manager.ParameterManager()
+        self.gameState          = game_state.GameState(self.parameterManager)
+        self.velocityManager    = velocity_manager.VelocityManager(self.parameterManager, self.gameState)
+        self.potentialManager   = potential_field_manager.PotentialManager(self,parameterManager, self.gameState)
 
         # ROS Hooks
-        #rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, self.HandleBumped)
-        self.motorPub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=1)
+        self.motorPub           = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=1)
 
     # -------------------------------------------------------------------------- Callbacks
     # Robot bumped something

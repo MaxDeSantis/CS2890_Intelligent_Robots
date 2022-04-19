@@ -14,6 +14,7 @@ class ParameterManager:
         self.MAX_ANGULAR_VELOCITY = 1.5
         self.MAX_LINEAR_VELOCITY = 1.0
 
+        # PID ------------------
         self.BEARING_KP = 0
         self.BEARING_KI = 0
         self.BEARING_KD = 0
@@ -31,6 +32,16 @@ class ParameterManager:
         self.THETA_KD = .1
         self.THETA_MAX = 0
         self.THETA_MIN = 0
+        # ----------------------
+
+        # Potential Field ------
+        self.POTENTIAL_BALL_SIGMA               = 1.0
+        self.POTENTIAL_OPPONENT_SIGMA           = 1.0
+        self.POTENTIAL_OBSTACLE_SIGMA           = 1.0
+        self.COMBINED_ATTRACTION_DIST_CUTOFF    = 1.0
+        self.ATTRACTIVE_ZETA                    = 0.5
+
+        # ----------------------
 
         # Stop state
         self.STOP_DURATION = 0.5

@@ -45,6 +45,10 @@ class GameState:
         self.soccerbot_theta = 0
         self.soccerbot_ar_tag        = 'ar_marker_' + str(int( not self.parameterManager.OPPONENT_GOAL_ID))
 
+        # Track computed objective
+        self.objective_x = 0
+        self.objective_y = 0
+
         # Setup ROS subs and callbacks from object finder
 
         rospy.Subscriber('/odom', Odometry, self.HandleSoccerbotPose)
