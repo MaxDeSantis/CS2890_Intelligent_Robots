@@ -32,8 +32,8 @@ class Detector:
         # ball detection
         self.ball_hue_upper = 40
         self.ball_hue_lower = 0
-        self.ball_sat_lower = 110
-        self.ball_val_lower = 120
+        self.ball_sat_lower = 130
+        self.ball_val_lower = 130
         self.ball_kernel_size = 25
         self.ball_erode_iterations = 1
         self.ball_dilate_iterations = 1

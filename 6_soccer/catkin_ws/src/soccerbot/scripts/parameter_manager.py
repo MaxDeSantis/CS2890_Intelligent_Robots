@@ -10,7 +10,7 @@ class ParameterManager:
 
         # Velocity management
         self.MAX_LINEAR_ACCELERATION = .1
-        self.MAX_ANGULAR_ACCELERATION = .2
+        self.MAX_ANGULAR_ACCELERATION = .3
         self.MAX_ANGULAR_VELOCITY = 1.5
         self.MAX_LINEAR_VELOCITY = 1.0
 
@@ -27,7 +27,7 @@ class ParameterManager:
         self.RANGE_MAX = 0
         self.RANGE_MIN = 0
 
-        self.THETA_KP = 1
+        self.THETA_KP = 1.3
         self.THETA_KI = 0
         self.THETA_KD = .1
         self.THETA_MAX = 0
@@ -39,7 +39,7 @@ class ParameterManager:
         self.POTENTIAL_OPPONENT_SIGMA           = 1.0
         self.POTENTIAL_OBSTACLE_SIGMA           = 1.0
         self.COMBINED_ATTRACTION_DIST_CUTOFF    = 1.0
-        self.ATTRACTIVE_ZETA                    = 0.5
+        self.ATTRACTIVE_ZETA                    = 1.5
 
         # ----------------------
 

@@ -85,10 +85,10 @@ class GameState:
         self.ball_bearing = msg.bearing
         self.ball_distance = msg.distance
         
-        if ball_bearing > 320:
-            self.ball_guess = self.BallGuess.right
-        elif ball_bearing < 320:
-            self.ball_guess = self.BallGuess.left
+        #if ball_bearing > 320:
+            #self.ball_guess = self.BallGuess.right
+        #elif ball_bearing < 320:
+            #self.ball_guess = self.BallGuess.left
         
 
     # Get new ball pose in odom frame

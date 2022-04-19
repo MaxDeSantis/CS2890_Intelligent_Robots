@@ -55,13 +55,14 @@ class VelocityManager:
         self.prev_ang_z = limited_angular_z_vel
         
         # Clamp linear
-        if desired_linear_x_vel - self.gameState.soccerbot_lin_x > self.parameterManager.MAX_LINEAR_ACCELERATION:
-            limited_linear_x_vel = self.gameState.soccerbot_lin_x + self.parameterManager.MAX_LINEAR_ACCELERATION
-        elif desired_linear_x_vel - self.gameState.soccerbot_lin_x < -self.parameterManager.MAX_LINEAR_ACCELERATION:
-            limited_linear_x_vel = self.gameState.soccerbot_lin_x - self.parameterManager.MAX_LINEAR_ACCELERATION
+        if desired_linear_x_vel - self.prev_lin_x > self.parameterManager.MAX_LINEAR_ACCELERATION:
+            limited_linear_x_vel = self.prev_lin_x + self.parameterManager.MAX_LINEAR_ACCELERATION
+        elif desired_linear_x_vel - self.prev_lin_x < -self.parameterManager.MAX_LINEAR_ACCELERATION:
+            limited_linear_x_vel = self.prev_lin_x - self.parameterManager.MAX_LINEAR_ACCELERATION
         else:
             limited_linear_x_vel = desired_linear_x_vel
-
+        self.prev_lin_x = limited_linear_x_vel
+        
         return (limited_angular_z_vel, limited_linear_x_vel)
 
     # Directly sets output twist - no PID or management

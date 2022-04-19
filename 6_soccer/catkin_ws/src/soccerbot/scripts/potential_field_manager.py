@@ -13,7 +13,7 @@ class PotentialManager:
         self.parameterManager = parameter_manager
         self.gameState = game_state
     
-    def Distance(x1, y1, x2, y2):
+    def Distance(self, x1, y1, x2, y2):
         d1 = (x1+x2)**2
         d2 = (y1+y2)**2
         d = math.sqrt(d1 + d2)
@@ -39,11 +39,13 @@ class PotentialManager:
     
         return (f_x, f_y)
         
-
+    def GetRepulsiveForce(self):
+        
 
 
     # Return potential at robot's position
     def GetLocalPotential(self):
         #print("potential")
-        (fx, fy) = self.GetAttractiveForce()
+        (fx, fy) = self.GetAttractiveForce() + self.GetRepulsiveForce()
         print("fx", fx, "fy", fy)
+        return (-fx, -fy)

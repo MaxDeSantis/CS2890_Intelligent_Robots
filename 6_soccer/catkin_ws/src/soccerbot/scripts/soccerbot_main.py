@@ -12,6 +12,8 @@ import parameter_manager
 import game_state
 import potential_field_manager
 
+from kobuki_msgs.msg import BumperEvent
+
 from geometry_msgs.msg import Twist
 
 # Overall Behavior:
@@ -28,7 +30,8 @@ class SoccerBot:
         stop                    = 0,
         recover                 = 1,
         initial_localize        = 2,
-        search                  = 3
+        search                  = 3,
+        approach_objective      = 4
 
 
     def __init__(self):
@@ -41,10 +44,11 @@ class SoccerBot:
         self.parameterManager   = parameter_manager.ParameterManager()
         self.gameState          = game_state.GameState(self.parameterManager)
         self.velocityManager    = velocity_manager.VelocityManager(self.parameterManager, self.gameState)
-        self.potentialManager   = potential_field_manager.PotentialManager(self,parameterManager, self.gameState)
+        self.potentialManager   = potential_field_manager.PotentialManager(self.parameterManager, self.gameState)
 
         # ROS Hooks
         self.motorPub           = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=1)
+        rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, self.HandleBumped)
 
     # -------------------------------------------------------------------------- Callbacks
     # Robot bumped something
@@ -111,11 +115,28 @@ class SoccerBot:
                                                 0, self.velocityManager.thetaPID, None)
             if abs(error) <= self.parameterManager.MAX_SEARCH_ERROR_THETA:
                 self.gameState.ball_guess = self.gameState.BallGuess.none
-
+   
         else:
             # Track normally
-            print("dont know")
-
+            #print("dont know")
+            
+            #self.gameState.objective_x = 1.5 * math.cos(self.gameState.soccerbot_theta) + self.gameState.soccerbot_x
+            #self.gameState.objective_y = 1.5 * math.sin(self.gameState.soccerbot_theta) + self.gameState.soccerbot_y
+            if not self.gameState.ball_x == 0 and not self.gameState.ball_y == 0:
+                self.state = self.RobotState.approach_objective
+                self.gameState.objective_x = self.gameState.ball_x
+                self.gameState.objective_y = self.gameState.ball_y
+    
+    def ApproachObjectiveBehavior(self):
+        print("APPROACHING OBJECTVE")
+        (vx, vy) = self.potentialManager.GetLocalPotential()
+        
+        v_mag = math.sqrt(vx**2 + vy**2)
+        v_theta = math.atan2(vy, vx)
+        print("VM:", v_mag, "VT:", v_theta)
+        ang_error = v_theta - self.gameState.soccerbot_theta
+        desired_ang_z = self.velocityManager.thetaPID.GetControl(ang_error, rospy.Time.now())
+        self.velocityManager.SetDesiredVelocity(desired_ang_z, v_mag)
 
     def RunFSM(self):
         print("run fsm")
@@ -131,6 +152,8 @@ class SoccerBot:
                 self.InitialLocalizeBehavior()
             elif self.state == self.RobotState.search:
                 self.SearchBehavior()
+            elif self.state == self.RobotState.approach_objective:
+                self.ApproachObjectiveBehavior()
             else:
                 print("UNDEFINED STATE")
             
@@ -142,10 +165,13 @@ class SoccerBot:
             nextTwist = self.velocityManager.GetNextTwist()
             print(nextTwist)
             
-            nextTwist.linear.x = 0
+            #nextTwist.linear.x = 0
             self.motorPub.publish(nextTwist)
             
             self.gameState.UpdateGoalTrackers()
+            
+            print("SELF | X:", self.gameState.soccerbot_x, " Y:", self.gameState.soccerbot_y, " T:", self.gameState.soccerbot_theta)
+            print("OBJ | X:", self.gameState.objective_x, " Y:", self.gameState.objective_y, " T:", math.atan2(self.gameState.objective_y, self.gameState.objective_x))
 
 
             rate.sleep()
