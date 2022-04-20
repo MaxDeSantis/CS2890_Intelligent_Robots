@@ -13,10 +13,12 @@ class PotentialManager:
         self.parameterManager = parameter_manager
         self.gameState = game_state
         self.obstacles = []
+        
+        self.force_pub = rospy.Publisher('/soccerbot/command/force', Twist, queue_size=1)
     
     def Distance(self, x1, y1, x2, y2):
-        d1 = (x1+x2)**2
-        d2 = (y1+y2)**2
+        d1 = (x1-x2)**2
+        d2 = (y1-y2)**2
         d = math.sqrt(d1 + d2)
         return d
 
@@ -37,7 +39,7 @@ class PotentialManager:
             f_x = dStar * zeta * (self.gameState.soccerbot_x - self.gameState.objective_x) / total_dist
             f_y = dStar * zeta * (self.gameState.soccerbot_y - self.gameState.objective_y) / total_dist
         
-    
+        print("Attractive: fx:", f_x, "fy:", f_y)
         return (f_x, f_y)
         
     def GetRepulsiveForce(self):
@@ -57,15 +59,17 @@ class PotentialManager:
         eta     = self.parameterManager.REPULSIVE_ETA
 
         dist = self.Distance(b_x, b_y, s_x, s_y)
-
+        
         if dist <= Qstar:
+            print("less than qstar")
             # Generate repulsive force
             f_x = eta * (1/Qstar - 1/dist) * (1/dist)**2 * (d_x / dist)
-            f_y = eta * (1/Qstar - 1/dist) * (1/dist)**2 * (d_y / dist)
+            f_y = eta * (1/Qstar - 1/dist) * (1/dist**2) * (d_y / dist)
         else:
             f_x = 0
             f_y = 0
-
+        
+        print("DIST:", dist, "REPULSIVE: fx:", f_x, "fy:", f_y)
         return (f_x, f_y)
 
 
@@ -73,6 +77,13 @@ class PotentialManager:
     # Return potential at robot's position
     def GetLocalPotential(self):
         #print("potential")
-        (fx, fy) = tuple(map(lambda i, j: i + j, self.GetAttractiveForce(), self.GetRepulsiveForce()))
+        (fx, fy) = tuple(map(lambda i, j: i - j, self.GetAttractiveForce(), self.GetRepulsiveForce()))
+        #(fx, fy) = self.GetAttractiveForce()
         print("fx", fx, "fy", fy)
+        
+        twist = Twist()
+        twist.linear.x = -fx
+        twist.linear.y = -fy
+        
+        self.force_pub.publish(twist)
         return (-fx, -fy)

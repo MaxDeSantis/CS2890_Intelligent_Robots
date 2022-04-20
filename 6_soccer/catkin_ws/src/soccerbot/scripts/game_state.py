@@ -142,6 +142,7 @@ class GameState:
             
 
         objPose = PoseStamped()
+        objPose.header.frame_id = "odom"
         objPose.pose.position.x = self.objective_x
         objPose.pose.position.y = self.objective_y
         self.objective_pub.publish(objPose)

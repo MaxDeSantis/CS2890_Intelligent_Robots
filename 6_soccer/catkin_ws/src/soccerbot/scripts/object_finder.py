@@ -7,7 +7,7 @@ import numpy as np
 import cv2
 import math
 from sensor_msgs.msg import Image, LaserScan
-from soccerbot.msg import BallLocation
+from soccerbot.msg import BallMeasured
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import PoseStamped
 
@@ -18,6 +18,7 @@ class Detector:
     def __init__(self):
         self.impub = rospy.Publisher('/soccerbot/image', Image, queue_size=1)
         self.ball_pub = rospy.Publisher('/soccerbot/ball/pose', PoseStamped, queue_size=1)
+        self.ball_measurement_pub = rospy.Publisher('/soccerbot/ball/measured', BallMeasured, queue_size=1)
         self.opponent_pub = rospy.Publisher('/soccerbot/opponent/pose', PoseStamped, queue_size=1)
         self.ball_detected_pub = rospy.Publisher('/soccerbot/ball/image_filtered', Image, queue_size=1)
         self.bridge = CvBridge()
@@ -31,10 +32,10 @@ class Detector:
 
         # ball detection
         self.ball_hue_upper = 40
-        self.ball_hue_lower = 0
+        self.ball_hue_lower = 20
         self.ball_sat_lower = 130
         self.ball_val_lower = 130
-        self.ball_kernel_size = 25
+        self.ball_kernel_size = 17
         self.ball_erode_iterations = 1
         self.ball_dilate_iterations = 1
         self.ball_width_meters = .3 #meters
@@ -69,7 +70,7 @@ class Detector:
         
         # With filtered blob, we can be reasonably confident that there is minimal noise.
         minV = maxV = -1
-        if len(cols) >= 200: #passes the test
+        if len(cols) >= 600: #passes the test
             sum = 0
             minV = cols[0]
             maxV = cols[0]
@@ -168,11 +169,11 @@ class Detector:
                 ball_pose = self.build_pose_stamped(self.ball_bearing, self.ball_distance, self.ball_stamp)
                 self.ball_pub.publish(ball_pose)
                 self.ball_stamp_prev = self.ball_stamp
-
-            #location = BallLocation()
-            #location.bearing = self.bearing
-            #location.distance = self.distance
-            #self.locpub.publish(location)
+                
+            measured = BallMeasured()
+            measured.bearing = self.ball_bearing
+            measured.distance = self.ball_distance
+            self.ball_measurement_pub.publish(measured)
 
 
 rospy.init_node('soccerbot_object_finder')

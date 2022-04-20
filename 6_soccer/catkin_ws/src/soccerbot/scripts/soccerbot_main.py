@@ -65,7 +65,7 @@ class SoccerBot:
         g_x = self.gameState.opponent_goal_x
         g_y = self.gameState.opponent_goal_y
 
-        theta = math.atan2(g_x - b_x, g_y - b_y) #X/Y due to robot's odom frame
+        theta = math.atan2(g_y - b_y, g_x - b_x)
 
         O_x = b_x - self.parameterManager.OBJECTIVE_DIST_FROM_BALL * math.cos(theta)
         O_y = b_y - self.parameterManager.OBJECTIVE_DIST_FROM_BALL * math.sin(theta)
@@ -115,21 +115,28 @@ class SoccerBot:
 
     # Rotate until the ball is found. Begins by rotating to initial estimate.
     def SearchBehavior(self):
-        
+        print("search")
         if self.gameState.ball_bearing < 0 or self.gameState.ball_distance < 0:
             self.velocityManager.SetDesiredVelocity(self.parameterManager.SEARCH_ANG_Z_DEFAULT, 0)
         else:
-            self.state = self.RobotState.line_up_ball
+            print("HERERERERERERE")
+            self.state = self.RobotState.line_up_approach
     
     def LineUpApproachBehavior(self):
-        angularError = 320 - self.gameState.ball_bearing
+        print("line up")
+        
+        if self.gameState.ball_bearing > 0 and self.gameState.ball_distance > 0:
+            
+            angularError = 320 - self.gameState.ball_bearing
+            print("ang error:", angularError)
+            self.velocityManager.SetVelocity_PID(angularError, 0, self.velocityManager.ballBearingPID, None)
 
-        self.velocityManager.SetVelocity_PID(angularError, 0, self.velocityManager.ballBearingPID, None)
-
-        if abs(320 - self.gameState.ball_bearing) < self.parameterManager.MAX_LINUP_BEARING_ERROR:
-            self.state = self.RobotState.approach_objective
-            # Set objective here
-            (self.gameState.objective_x, self.gameState.objective_y) = self.ComputeObjectiveXY()
+            if abs(320 - self.gameState.ball_bearing) < self.parameterManager.MAX_LINUP_BEARING_ERROR:
+                self.state = self.RobotState.approach_objective
+                # Set objective here
+                (self.gameState.objective_x, self.gameState.objective_y) = self.ComputeObjectiveXY()
+        else:
+            self.state = self.RobotState.search
 
         # print("search")
 
@@ -162,14 +169,17 @@ class SoccerBot:
             #     self.gameState.objective_y = self.gameState.ball_y
     
     def ApproachObjectiveBehavior(self):
+        
         print("APPROACHING OBJECTVE")
         (vx, vy) = self.potentialManager.GetLocalPotential()
         
         v_mag = math.sqrt(vx**2 + vy**2)
         v_theta = math.atan2(vy, vx)
-        print("VM:", v_mag, "VT:", v_theta)
+        
         ang_error = v_theta - self.gameState.soccerbot_theta
+        
         desired_ang_z = self.velocityManager.thetaPID.GetControl(ang_error, rospy.Time.now())
+        print("VM:", v_mag, "VT:", v_theta, "ang error:", ang_error, "ang z control:", desired_ang_z)
         self.velocityManager.SetDesiredVelocity(desired_ang_z, v_mag)
 
     def RunFSM(self):
