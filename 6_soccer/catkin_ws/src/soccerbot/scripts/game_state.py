@@ -60,6 +60,7 @@ class GameState:
         
         self.opponent_goal_pub = rospy.Publisher('/soccerbot/goals/opponent/pose', PoseStamped, queue_size=1)
         self.own_goal_pub = rospy.Publisher('/soccerbot/goals/self/pose', PoseStamped, queue_size=1)
+        self.objective_pub = rospy.Publisher('/soccerbot/objective', PoseStamped, queue_size=1)
 
         self.listener = tf2_ros.Buffer()
         tf2_ros.TransformListener(self.listener)
@@ -139,4 +140,9 @@ class GameState:
         except tf2_ros.ExtrapolationException:
             pass
             
+
+        objPose = PoseStamped()
+        objPose.pose.position.x = self.objective_x
+        objPose.pose.position.y = self.objective_y
+        self.objective_pub.publish(objPose)
            

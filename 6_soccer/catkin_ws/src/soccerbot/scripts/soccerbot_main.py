@@ -31,7 +31,8 @@ class SoccerBot:
         recover                 = 1,
         initial_localize        = 2,
         search                  = 3,
-        approach_objective      = 4
+        line_up_approach        = 4,
+        approach_objective      = 5
 
 
     def __init__(self):
@@ -54,6 +55,22 @@ class SoccerBot:
     # Robot bumped something
     def HandleBumped(self, msg):
         self.state = self.RobotState.stop
+
+    # -------------------------------------------------------------------------- Utility
+
+    def ComputeObjectiveXY(self):
+        b_x = self.gameState.ball_x
+        b_y = self.gameState.ball_y
+
+        g_x = self.gameState.opponent_goal_x
+        g_y = self.gameState.opponent_goal_y
+
+        theta = math.atan2(g_x - b_x, g_y - b_y) #X/Y due to robot's odom frame
+
+        O_x = b_x - self.parameterManager.OBJECTIVE_DIST_FROM_BALL * math.cos(theta)
+        O_y = b_y - self.parameterManager.OBJECTIVE_DIST_FROM_BALL * math.sin(theta)
+
+        return (O_x, O_y)
 
     # -------------------------------------------------------------------------- Behaviors
 
@@ -98,34 +115,51 @@ class SoccerBot:
 
     # Rotate until the ball is found. Begins by rotating to initial estimate.
     def SearchBehavior(self):
-        print("search")
-
-        if self.gameState.ball_guess == self.gameState.BallGuess.left:
-            print("left")
-            
-        elif self.gameState.ball_guess == self.gameState.BallGuess.right:
         
-            print("right")
-        
-        elif self.gameState.ball_guess == self.gameState.BallGuess.behind:
-            print("behind")
-            # Turn around quick!
-            error = self.gameState.theta_guess - self.gameState.soccerbot_theta
-            self.velocityManager.SetVelocity_PID(error,
-                                                0, self.velocityManager.thetaPID, None)
-            if abs(error) <= self.parameterManager.MAX_SEARCH_ERROR_THETA:
-                self.gameState.ball_guess = self.gameState.BallGuess.none
-   
+        if self.gameState.ball_bearing < 0 or self.gameState.ball_distance < 0:
+            self.velocityManager.SetDesiredVelocity(self.parameterManager.SEARCH_ANG_Z_DEFAULT, 0)
         else:
+            self.state = self.RobotState.line_up_ball
+    
+    def LineUpApproachBehavior(self):
+        angularError = 320 - self.gameState.ball_bearing
+
+        self.velocityManager.SetVelocity_PID(angularError, 0, self.velocityManager.ballBearingPID, None)
+
+        if abs(320 - self.gameState.ball_bearing) < self.parameterManager.MAX_LINUP_BEARING_ERROR:
+            self.state = self.RobotState.approach_objective
+            # Set objective here
+            (self.gameState.objective_x, self.gameState.objective_y) = self.ComputeObjectiveXY()
+
+        # print("search")
+
+        # if self.gameState.ball_guess == self.gameState.BallGuess.left:
+        #     print("left")
+            
+        # elif self.gameState.ball_guess == self.gameState.BallGuess.right:
+        
+        #     print("right")
+        
+        # elif self.gameState.ball_guess == self.gameState.BallGuess.behind:
+        #     print("behind")
+        #     # Turn around quick!
+        #     error = self.gameState.theta_guess - self.gameState.soccerbot_theta
+        #     self.velocityManager.SetVelocity_PID(error,
+        #                                         0, self.velocityManager.thetaPID, None)
+        #     if abs(error) <= self.parameterManager.MAX_SEARCH_ERROR_THETA:
+        #         self.gameState.ball_guess = self.gameState.BallGuess.none
+
+   
+        #else:
             # Track normally
             #print("dont know")
             
             #self.gameState.objective_x = 1.5 * math.cos(self.gameState.soccerbot_theta) + self.gameState.soccerbot_x
             #self.gameState.objective_y = 1.5 * math.sin(self.gameState.soccerbot_theta) + self.gameState.soccerbot_y
-            if not self.gameState.ball_x == 0 and not self.gameState.ball_y == 0:
-                self.state = self.RobotState.approach_objective
-                self.gameState.objective_x = self.gameState.ball_x
-                self.gameState.objective_y = self.gameState.ball_y
+            # if not self.gameState.ball_x == 0 and not self.gameState.ball_y == 0:
+            #     self.state = self.RobotState.approach_objective
+            #     self.gameState.objective_x = self.gameState.ball_x
+            #     self.gameState.objective_y = self.gameState.ball_y
     
     def ApproachObjectiveBehavior(self):
         print("APPROACHING OBJECTVE")
@@ -152,6 +186,8 @@ class SoccerBot:
                 self.InitialLocalizeBehavior()
             elif self.state == self.RobotState.search:
                 self.SearchBehavior()
+            elif self.state == self.RobotState.line_up_approach:
+                self.LineUpApproachBehavior()
             elif self.state == self.RobotState.approach_objective:
                 self.ApproachObjectiveBehavior()
             else:

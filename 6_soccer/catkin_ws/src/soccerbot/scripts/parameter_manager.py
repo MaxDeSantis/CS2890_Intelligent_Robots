@@ -40,6 +40,8 @@ class ParameterManager:
         self.POTENTIAL_OBSTACLE_SIGMA           = 1.0
         self.COMBINED_ATTRACTION_DIST_CUTOFF    = 1.0
         self.ATTRACTIVE_ZETA                    = 1.5
+        self.REPULSIVE_ETA                      = 1.0
+        self.REPULSIVE_CUTOFF                   = 0.5
 
         # ----------------------
 
@@ -54,3 +56,6 @@ class ParameterManager:
 
         # Search State
         self.SEARCH_ANG_Z_DEFAULT = 1
+
+        # Approach
+        self.OBJECTIVE_DIST_FROM_BALL = 1
