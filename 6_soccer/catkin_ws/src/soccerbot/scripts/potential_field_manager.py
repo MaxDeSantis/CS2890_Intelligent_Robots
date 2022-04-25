@@ -30,16 +30,19 @@ class PotentialManager:
         total_dist = self.Distance(self.gameState.soccerbot_x, self.gameState.soccerbot_y,
                                     self.gameState.objective_x, self.gameState.objective_y)
 
+        print('Dist to goal:', total_dist)
+
         if total_dist <= dStar:
             # Close to goal, use normal approach
-            f_x = zeta * (self.gameState.soccerbot_x - self.gameState.objective_x)
-            f_y = zeta * (self.gameState.soccerbot_y - self.gameState.objective_y)
+            f_x = zeta * (self.gameState.objective_x - self.gameState.soccerbot_x)
+            f_y = zeta * (self.gameState.objective_y - self.gameState.soccerbot_y)
         else:
             # Further from goal
-            f_x = dStar * zeta * (self.gameState.soccerbot_x - self.gameState.objective_x) / total_dist
-            f_y = dStar * zeta * (self.gameState.soccerbot_y - self.gameState.objective_y) / total_dist
+            f_x = dStar * zeta * (self.gameState.objective_x - self.gameState.soccerbot_x) / total_dist
+            f_y = dStar * zeta * (self.gameState.objective_y - self.gameState.soccerbot_y) / total_dist
         
-        print("Attractive: fx:", f_x, "fy:", f_y)
+        #print("Attractive: fx:", f_x, "fy:", f_y)
+
         return (f_x, f_y)
         
     def GetRepulsiveForce(self):
@@ -59,7 +62,7 @@ class PotentialManager:
         eta     = self.parameterManager.REPULSIVE_ETA
 
         dist = self.Distance(b_x, b_y, s_x, s_y)
-        
+        print('Dist to ball:', dist)
         if dist <= Qstar:
             print("less than qstar")
             # Generate repulsive force
@@ -69,7 +72,7 @@ class PotentialManager:
             f_x = 0
             f_y = 0
         
-        print("DIST:", dist, "REPULSIVE: fx:", f_x, "fy:", f_y)
+        #print("DIST:", dist, "REPULSIVE: fx:", f_x, "fy:", f_y)
         return (f_x, f_y)
 
 
@@ -77,13 +80,19 @@ class PotentialManager:
     # Return potential at robot's position
     def GetLocalPotential(self):
         #print("potential")
-        (fx, fy) = tuple(map(lambda i, j: i - j, self.GetAttractiveForce(), self.GetRepulsiveForce()))
+        (fa_x, fa_y) = self.GetAttractiveForce()
+        (fr_x, fr_y) = self.GetRepulsiveForce()
+        (fx, fy) = (fa_x + fr_x, fa_y + fr_y)
+
+        #(fx, fy) = tuple(map(lambda i, j: i - j, self.GetAttractiveForce(), self.GetRepulsiveForce()))
         #(fx, fy) = self.GetAttractiveForce()
-        print("fx", fx, "fy", fy)
+        #print("fx", fx, "fy", fy)
+
+        print('Fa_x:', fa_x, 'Fa_y:', fa_y, 'Fr_x:', fr_x, 'Fr_y:', fr_y, 'Fx:', fx, 'Fy:', fy)
         
         twist = Twist()
         twist.linear.x = -fx
         twist.linear.y = -fy
         
-        self.force_pub.publish(twist)
-        return (-fx, -fy)
+        #self.force_pub.publish(twist)
+        return (fx, fy)
