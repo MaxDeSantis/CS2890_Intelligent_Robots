@@ -52,9 +52,13 @@ class ParameterManager:
         # Initial localize state
 
         # Search State
-        self.SEARCH_ANG_Z_DEFAULT = 1
+        self.SEARCH_ANG_Z_DEFAULT = 1.3
         
         # Line Up
         self.MAX_LINUP_BEARING_ERROR = 25
         # Approach
         self.OBJECTIVE_DIST_FROM_BALL = 1
+
+        #kick
+        self.KICK_LIN_X = 1.0
+        self.KICK_DURATION = 1.3

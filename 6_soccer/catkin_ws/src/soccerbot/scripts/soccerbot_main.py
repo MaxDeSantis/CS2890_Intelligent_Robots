@@ -32,7 +32,9 @@ class SoccerBot:
         initial_localize        = 2,
         search                  = 3,
         line_up_approach        = 4,
-        approach_objective      = 5
+        approach_objective      = 5,
+        line_up_kick            = 6,
+        kick                    = 7
 
 
     def __init__(self):
@@ -71,6 +73,11 @@ class SoccerBot:
         O_y = b_y - self.parameterManager.OBJECTIVE_DIST_FROM_BALL * math.sin(theta)
 
         return (O_x, O_y)
+
+    def GetVector(self, from_x, from_y, to_x, to_y):
+        bearing = math.atan2(to_y - from_y, to_x - from_x)
+        distance = math.sqrt((from_x - to_x)**2 + (from_y - to_y)**2)
+        return (bearing, distance)
 
     # -------------------------------------------------------------------------- Behaviors
 
@@ -167,20 +174,53 @@ class SoccerBot:
             #     self.state = self.RobotState.approach_objective
             #     self.gameState.objective_x = self.gameState.ball_x
             #     self.gameState.objective_y = self.gameState.ball_y
+
     
     def ApproachObjectiveBehavior(self):
         
         print("APPROACHING OBJECTVE")
-        (vx, vy) = self.potentialManager.GetLocalPotential()
+        (fx, fy) = self.potentialManager.GetLocalPotential()
+
+        (f_bearing, f_mag) = self.GetVector(0, 0, fx, fy) # Not sure if this is correct
+
+        #print('bearing', f_bearing, 'mag', f_mag)
         
-        v_mag = math.sqrt(vx**2 + vy**2)
-        v_theta = math.atan2(vy, vx)
+        #v_mag = math.sqrt(vx**2 + vy**2)
+        #v_theta = math.atan2(vy, vx)
         
-        ang_error = v_theta - self.gameState.soccerbot_theta
+        ang_error = f_bearing - self.gameState.soccerbot_theta
         
         desired_ang_z = self.velocityManager.thetaPID.GetControl(ang_error, rospy.Time.now())
-        print("VM:", v_mag, "VT:", v_theta, "ang error:", ang_error, "ang z control:", desired_ang_z)
-        self.velocityManager.SetDesiredVelocity(desired_ang_z, v_mag)
+        print("mag:", f_mag, "bearing:", f_bearing, "ang error:", ang_error, "ang z control:", desired_ang_z)
+        self.velocityManager.SetDesiredVelocity(desired_ang_z, f_mag)
+
+        # Probably check distance between ball location and original ball location. If it differs too much, ball has moved so reenter line up
+
+    def LineUpKickBehavior(self):
+        print("line up kick")
+        
+        if self.gameState.ball_bearing > 0 and self.gameState.ball_distance > 0:
+            
+            angularError = 320 - self.gameState.ball_bearing
+            print("ang error:", angularError)
+            self.velocityManager.SetVelocity_PID(angularError, 0, self.velocityManager.ballBearingPID, None)
+
+            if abs(320 - self.gameState.ball_bearing) < self.parameterManager.MAX_LINUP_BEARING_ERROR:
+                #self.state = self.RobotState.approach_objective
+                self.state = self.RobotState.kick
+                # Set objective here
+                #(self.gameState.objective_x, self.gameState.objective_y) = self.ComputeObjectiveXY()
+        else:
+            self.velocityManager.SetDesiredVelocity(self.parameterManager.SEARCH_ANG_Z_DEFAULT, 0)
+
+    def KickBehavior(self):
+        print("KICK")
+        if not self.Waiting(self.parameterManager.KICK_DURATION):
+            self.state = self.RobotState.search
+
+        self.velManager.SetDesiredVelocity(0, self.parameterManager.KICK_LIN_X)
+        
+        
 
     def RunFSM(self):
         print("run fsm")
@@ -200,6 +240,10 @@ class SoccerBot:
                 self.LineUpApproachBehavior()
             elif self.state == self.RobotState.approach_objective:
                 self.ApproachObjectiveBehavior()
+            elif self.state == self.RobotState.line_up_kick:
+                self.LineUpKickBehavior()
+            elif self.state == self.RobotState.kick:
+                self.KickBehavior()
             else:
                 print("UNDEFINED STATE")
             
