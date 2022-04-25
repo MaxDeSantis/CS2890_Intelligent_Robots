@@ -211,7 +211,7 @@ class SoccerBot:
             nextTwist = self.velocityManager.GetNextTwist()
             print(nextTwist)
             
-            #nextTwist.linear.x = 0
+            nextTwist.linear.x = 0
             self.motorPub.publish(nextTwist)
             
             self.gameState.UpdateGoalTrackers()

@@ -73,7 +73,7 @@ class PotentialManager:
             f_y = 0
         
         #print("DIST:", dist, "REPULSIVE: fx:", f_x, "fy:", f_y)
-        return (f_x, f_y)
+        return (-f_x, -f_y)
 
 
 
@@ -88,7 +88,7 @@ class PotentialManager:
         #(fx, fy) = self.GetAttractiveForce()
         #print("fx", fx, "fy", fy)
 
-        print('Fa_x:', fa_x, 'Fa_y:', fa_y, 'Fr_x:', fr_x, 'Fr_y:', fr_y, 'Fx:', fx, 'Fy:', fy)
+        print('s_x', self.gameState.soccerbot_x, 's_y', self.gameState.soccerbot_y, 'g_x', self.gameState.objective_x, 'g_y', self.gameState.objective_y, 'b_x', self.gameState.ball_x, 'b_y', self.gameState.ball_y, 'Fa_x:', fa_x, 'Fa_y:', fa_y, 'Fr_x:', fr_x, 'Fr_y:', fr_y, 'Fx:', fx, 'Fy:', fy)
         
         twist = Twist()
         twist.linear.x = -fx
