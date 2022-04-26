@@ -36,6 +36,8 @@ class GameState:
         self.ball_distance = -1
         self.ball_guess = self.BallGuess.behind
         self.theta_guess = None
+        self.ball_memory_x = 0
+        self.ball_memory_y = 0
 
         # Track self position
         self.own_goal_x = 0
@@ -48,6 +50,7 @@ class GameState:
         # Track computed objective
         self.objective_x = 0
         self.objective_y = 0
+        
 
         # Setup ROS subs and callbacks from object finder
 

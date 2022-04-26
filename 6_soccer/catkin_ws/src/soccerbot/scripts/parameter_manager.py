@@ -6,16 +6,16 @@ class ParameterManager:
         
         # Goal Information
         self.OPPONENT_GOAL_ID = 0
-        self.MAX_SEARCH_ERROR_THETA = .2
+        self.MAX_SEARCH_ERROR_THETA = .35
 
         # Velocity management
-        self.MAX_LINEAR_ACCELERATION = .1
+        self.MAX_LINEAR_ACCELERATION = .03
         self.MAX_ANGULAR_ACCELERATION = .3
         self.MAX_ANGULAR_VELOCITY = 1.5
         self.MAX_LINEAR_VELOCITY = 1.0
 
         # PID ------------------
-        self.BEARING_KP = 0.0063
+        self.BEARING_KP = 0.0053
         self.BEARING_KI = 0
         self.BEARING_KD = 0.0016
         self.BEARING_MAX = self.MAX_ANGULAR_VELOCITY
@@ -27,38 +27,50 @@ class ParameterManager:
         self.RANGE_MAX = 0
         self.RANGE_MIN = 0
 
-        self.THETA_KP = 1.3
+        self.THETA_KP = 1.6
         self.THETA_KI = 0
-        self.THETA_KD = .1
+        self.THETA_KD = .3
         self.THETA_MAX = self.MAX_ANGULAR_VELOCITY
         self.THETA_MIN = -self.MAX_ANGULAR_VELOCITY
         # ----------------------
 
         # Potential Field ------
-        self.COMBINED_ATTRACTION_DIST_CUTOFF    = 1.8
-        self.ATTRACTIVE_ZETA                    = 0.3
-        self.REPULSIVE_ETA                      = 1.0
-        self.REPULSIVE_CUTOFF                   = 2.3
+        self.COMBINED_ATTRACTION_DIST_CUTOFF    = 0.1
+        self.ATTRACTIVE_ZETA                    = 3.5
+        
+        self.BALL_REPULSIVE_ETA                 = 1.3
+        self.BALL_REPULSIVE_CUTOFF              = 1.5
+        self.POTENTIAL_MAG_LOWER_CUTOFF         = 0.1
+        
+        self.OBSTACLE_MEMORY_TIME               = 20
+        self.OBS_REPULSIVE_ETA                  = 1.5
+        self.OBS_REPULSIVE_CUTOFF               = 1.0
+        self.OBS_DIST                           = 0.2
+        
+        self.NUDGE_FORCE                        = 0.5
 
         # ----------------------
 
         # Stop state
-        self.STOP_DURATION = 0.5
+        self.STOP_DURATION = 1.0
 
         # Recover state
-        self.RECOVER_DURATION = 1
+        self.RECOVER_DURATION = 1.5
         self.RECOVER_LINEAR_X = -0.2
-
-        # Initial localize state
 
         # Search State
         self.SEARCH_ANG_Z_DEFAULT = 1.3
         
         # Line Up
-        self.MAX_LINUP_BEARING_ERROR = 25
+        self.MAX_LINUP_BEARING_ERROR = 40
+        
         # Approach
         self.OBJECTIVE_DIST_FROM_BALL = 1
+        self.MAX_GOAL_ERROR = 0.5
+        
+        # Kick Line Up
+        self.MAX_BALL_ERROR_KICK = 0.2
 
-        #kick
-        self.KICK_LIN_X = 1.0
-        self.KICK_DURATION = 1.3
+        # Kick
+        self.KICK_LIN_X = 1.5
+        self.KICK_DURATION = 1.8

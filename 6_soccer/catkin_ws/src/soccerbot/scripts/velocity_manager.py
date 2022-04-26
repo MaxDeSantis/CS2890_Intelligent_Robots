@@ -64,7 +64,22 @@ class VelocityManager:
         self.prev_lin_x = limited_linear_x_vel
         
         return (limited_angular_z_vel, limited_linear_x_vel)
-
+        
+    def LimitVelocity(self, desired_ang_z_vel, desired_lin_x_vel):
+        clamped_lin_x = desired_lin_x_vel
+        clamped_ang_z = desired_ang_z_vel
+        if desired_lin_x_vel > self.parameterManager.MAX_LINEAR_VELOCITY:
+            clamped_lin_x = self.parameterManager.MAX_LINEAR_VELOCITY
+        elif desired_lin_x_vel < -self.parameterManager.MAX_LINEAR_VELOCITY:
+            clamped_lin_x = -self.parameterManager.MAX_LINEAR_VELOCITY
+        
+        if desired_ang_z_vel > self.parameterManager.MAX_ANGULAR_VELOCITY:
+            clamped_ang_z = self.parameterManager.MAX_ANGULAR_VELOCITY
+        elif desired_ang_z_vel < -self.parameterManager.MAX_ANGULAR_VELOCITY:
+            clamped_ang_z = -self.parameterManager.MAX_ANGULAR_VELOCITY
+        
+        return (clamped_ang_z, clamped_lin_x)
+        
     # Directly sets output twist - no PID or management
     def SetRawVelocity(self, raw_angular_z_vel, raw_linear_x_vel):
         rawVel = Twist()
@@ -76,6 +91,8 @@ class VelocityManager:
     def SetDesiredVelocity(self, desired_angular_z_vel, desired_linear_x_vel):
         newVel = Twist()
         (newVel.angular.z, newVel.linear.x) = self.LimitAcceleration(desired_angular_z_vel, desired_linear_x_vel)
+        (newVel.angular.z, newVel.linear.x) = self.LimitVelocity(newVel.angular.z, newVel.linear.x)
+        
         self.cmdVel = newVel
 
     # Compute desired velocity using PID
@@ -87,7 +104,8 @@ class VelocityManager:
 
         if not linearPID is None:
             lin_u = linearPID.GetControl(linearError, rospy.Time.now())
-
+        
+        print('lin_u:', lin_u)
         self.SetDesiredVelocity(ang_u, lin_u)
 
 

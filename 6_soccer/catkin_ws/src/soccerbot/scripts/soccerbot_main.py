@@ -57,12 +57,13 @@ class SoccerBot:
     # Robot bumped something
     def HandleBumped(self, msg):
         self.state = self.RobotState.stop
+        self.waiting = False
 
     # -------------------------------------------------------------------------- Utility
 
     def ComputeObjectiveXY(self):
-        b_x = self.gameState.ball_x
-        b_y = self.gameState.ball_y
+        b_x = self.gameState.ball_memory_x = self.gameState.ball_x
+        b_y = self.gameState.ball_memory_y = self.gameState.ball_y
 
         g_x = self.gameState.opponent_goal_x
         g_y = self.gameState.opponent_goal_y
@@ -78,6 +79,23 @@ class SoccerBot:
         bearing = math.atan2(to_y - from_y, to_x - from_x)
         distance = math.sqrt((from_x - to_x)**2 + (from_y - to_y)**2)
         return (bearing, distance)
+        
+    def GetCorrectAngleDiff(self, desired_angle, actual_angle):
+        angle_diff = (desired_angle - actual_angle)
+        
+        if angle_diff > math.pi:
+            angle_diff = (angle_diff) % (-2*math.pi)
+        elif angle_diff < -math.pi:
+            angle_diff = (angle_diff) % (2*math.pi)
+        
+        return angle_diff
+        
+    def Distance(self, x1, y1, x2, y2):
+        d1 = (x1-x2)**2
+        d2 = (y1-y2)**2
+        d = math.sqrt(d1 + d2)
+        return d
+        
 
     # -------------------------------------------------------------------------- Behaviors
 
@@ -98,6 +116,11 @@ class SoccerBot:
     def StopBehavior(self):
         if not self.Waiting(self.parameterManager.STOP_DURATION):
             self.state = self.RobotState.recover
+            
+            # Determine where obstacle is
+            x = self.gameState.soccerbot_x + self.parameterManager.OBS_DIST*math.cos(self.gameState.soccerbot_theta)
+            y = self.gameState.soccerbot_y + self.parameterManager.OBS_DIST*math.sin(self.gameState.soccerbot_theta)
+            self.potentialManager.AddObstacle(x, y)
         self.velocityManager.SetRawVelocity(0, 0) # Stop completely
 
     # Backup slightly then enter search mode.
@@ -179,7 +202,7 @@ class SoccerBot:
     def ApproachObjectiveBehavior(self):
         
         print("APPROACHING OBJECTVE")
-        (fx, fy) = self.potentialManager.GetLocalPotential()
+        (fx, fy, acceptableError) = self.potentialManager.GetLocalPotential()
 
         (f_bearing, f_mag) = self.GetVector(0, 0, fx, fy) # Not sure if this is correct
 
@@ -188,13 +211,19 @@ class SoccerBot:
         #v_mag = math.sqrt(vx**2 + vy**2)
         #v_theta = math.atan2(vy, vx)
         
-        ang_error = f_bearing - self.gameState.soccerbot_theta
+        #ang_error = f_bearing - self.gameState.soccerbot_theta
+        ang_error = self.GetCorrectAngleDiff(f_bearing, self.gameState.soccerbot_theta)
         
         desired_ang_z = self.velocityManager.thetaPID.GetControl(ang_error, rospy.Time.now())
-        print("mag:", f_mag, "bearing:", f_bearing, "ang error:", ang_error, "ang z control:", desired_ang_z)
+        print("mag:", f_mag, "goal bearing:", f_bearing, "self bearing", self.gameState.soccerbot_theta, "ang error:", ang_error, "ang z control:", desired_ang_z)
+        
+        # Don't move forward if not pointing correct direction, unsure if desirable
+        if abs(f_bearing - self.gameState.soccerbot_theta) > self.parameterManager.MAX_SEARCH_ERROR_THETA:
+            f_mag = 0
         self.velocityManager.SetDesiredVelocity(desired_ang_z, f_mag)
-
-        # Probably check distance between ball location and original ball location. If it differs too much, ball has moved so reenter line up
+        
+        if acceptableError:
+            self.state = self.RobotState.line_up_kick
 
     def LineUpKickBehavior(self):
         print("line up kick")
@@ -206,10 +235,15 @@ class SoccerBot:
             self.velocityManager.SetVelocity_PID(angularError, 0, self.velocityManager.ballBearingPID, None)
 
             if abs(320 - self.gameState.ball_bearing) < self.parameterManager.MAX_LINUP_BEARING_ERROR:
-                #self.state = self.RobotState.approach_objective
-                self.state = self.RobotState.kick
-                # Set objective here
-                #(self.gameState.objective_x, self.gameState.objective_y) = self.ComputeObjectiveXY()
+                
+                # If ball has moved since we computed approach, retry
+                if abs(self.Distance(self.gameState.ball_memory_x, self.gameState.ball_memory_y, self.gameState.ball_x, self.gameState.ball_y)) > self.parameterManager.MAX_BALL_ERROR_KICK:
+                    self.state = self.RobotState.approach_objective
+                    # Set objective here
+                    (self.gameState.objective_x, self.gameState.objective_y) = self.ComputeObjectiveXY()
+                else:
+                    self.state = self.RobotState.kick
+
         else:
             self.velocityManager.SetDesiredVelocity(self.parameterManager.SEARCH_ANG_Z_DEFAULT, 0)
 
@@ -218,7 +252,7 @@ class SoccerBot:
         if not self.Waiting(self.parameterManager.KICK_DURATION):
             self.state = self.RobotState.search
 
-        self.velManager.SetDesiredVelocity(0, self.parameterManager.KICK_LIN_X)
+        self.velocityManager.SetRawVelocity(0, self.parameterManager.KICK_LIN_X)
         
         
 
@@ -255,7 +289,7 @@ class SoccerBot:
             nextTwist = self.velocityManager.GetNextTwist()
             print(nextTwist)
             
-            nextTwist.linear.x = 0
+            #nextTwist.linear.x = 0
             self.motorPub.publish(nextTwist)
             
             self.gameState.UpdateGoalTrackers()
