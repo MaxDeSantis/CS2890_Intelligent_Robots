@@ -42,7 +42,7 @@ class ParameterManager:
         self.OBS_REPULSIVE_CUTOFF               = 1.0
         self.OBS_DIST                           = 0.2
         
-        self.NUDGE_FORCE                        = 1.0
+        self.NUDGE_FORCE                        = 1.7
 
         # ----------------------
         
@@ -56,7 +56,7 @@ class ParameterManager:
         self.RECOVER_LINEAR_X = -0.2
 
         # Search State
-        self.SEARCH_ANG_Z_DEFAULT = 1.8
+        self.SEARCH_ANG_Z_DEFAULT = 1.4
         
         # Line Up
         self.MAX_LINUP_BEARING_ERROR = 45
