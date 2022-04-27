@@ -5,11 +5,11 @@ class ParameterManager:
     def __init__(self):
         
         # Goal Information
-        self.OPPONENT_GOAL_ID = 0
+        self.OPPONENT_GOAL_ID = 1
         self.MAX_SEARCH_ERROR_THETA = .35
 
         # Velocity management
-        self.MAX_LINEAR_ACCELERATION = .03
+        self.MAX_LINEAR_ACCELERATION = .2
         self.MAX_ANGULAR_ACCELERATION = .3
         self.MAX_ANGULAR_VELOCITY = 2.0
         self.MAX_LINEAR_VELOCITY = 1.7
@@ -18,7 +18,7 @@ class ParameterManager:
         # PID ------------------
         self.BEARING_KP = 0.0059
         self.BEARING_KI = 0
-        self.BEARING_KD = 0.0023
+        self.BEARING_KD = 0.0027
         self.BEARING_MAX = self.MAX_ANGULAR_VELOCITY
         self.BEARING_MIN = -self.MAX_ANGULAR_VELOCITY
 
@@ -56,7 +56,7 @@ class ParameterManager:
         self.RECOVER_LINEAR_X = -0.2
 
         # Search State
-        self.SEARCH_ANG_Z_DEFAULT = 1.4
+        self.SEARCH_ANG_Z_DEFAULT = 1.6
         
         # Line Up
         self.MAX_LINUP_BEARING_ERROR = 45
