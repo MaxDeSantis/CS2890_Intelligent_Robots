@@ -23,12 +23,6 @@ class VelocityManager:
                                     self.parameterManager.BEARING_MAX,
                                     self.parameterManager.BEARING_MIN)
 
-        self.rangePID           = robot_pid.PID(self.parameterManager.RANGE_KP,
-                                    self.parameterManager.RANGE_KI,
-                                    self.parameterManager.RANGE_KD,
-                                    self.parameterManager.RANGE_MAX,
-                                    self.parameterManager.RANGE_MIN)
-
         self.thetaPID           = robot_pid.PID(self.parameterManager.THETA_KP,
                                     self.parameterManager.THETA_KI,
                                     self.parameterManager.THETA_KD,

@@ -86,15 +86,10 @@ class PotentialManager:
         
         (fx, fy) = (fa_x + fr_x, fa_y + fr_y)
 
-        
-
-
 
         print('s_x', self.gameState.soccerbot_x, 's_y', self.gameState.soccerbot_y, 'g_x', self.gameState.objective_x, 'g_y', self.gameState.objective_y, 'b_x', self.gameState.ball_x, 'b_y', self.gameState.ball_y, 'Fa_x:', fa_x, 'Fa_y:', fa_y, 'Fr_x:', fr_x, 'Fr_y:', fr_y, 'Fx:', fx, 'Fy:', fy)
         
-        
-        
-        
+
         f_mag = self.Distance(0, 0, fx, fy)
         goal_dist = self.Distance(self.gameState.soccerbot_x, self.gameState.soccerbot_y,
                                     self.gameState.objective_x, self.gameState.objective_y)
@@ -106,8 +101,8 @@ class PotentialManager:
             
         if f_mag <= self.parameterManager.POTENTIAL_MAG_LOWER_CUTOFF and not acceptable:
             rand = random.uniform(0, 1)
-            fx = fx + self.parameterManager.NUDGE_FORCE * rand
-            fy = fy + self.parameterManager.NUDGE_FORCE * (1 - rand)
+            fx = fx + self.parameterManager.NUDGE_FORCE * rand * math.cos(self.gameState.soccerbot_theta)
+            fy = fy + self.parameterManager.NUDGE_FORCE * rand * math.sin(self.gameState.soccerbot_theta)
             print('nudging!!!!')
         
         return (fx, fy, acceptable)
