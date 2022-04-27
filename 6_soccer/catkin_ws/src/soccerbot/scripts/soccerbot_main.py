@@ -160,8 +160,10 @@ class SoccerBot:
             angularError = 320 - self.gameState.ball_bearing
             print("ang error:", angularError)
             self.velocityManager.SetVelocity_PID(angularError, 0, self.velocityManager.ballBearingPID, None)
+            
+            
 
-            if abs(320 - self.gameState.ball_bearing) < self.parameterManager.MAX_LINUP_BEARING_ERROR:
+            if abs(320 - self.gameState.ball_bearing) < self.parameterManager.MAX_LINUP_BEARING_ERROR and abs(self.gameState.soccerbot_ang_z) <= self.parameterManager.MAX_ANG_Z_ERROR_CUTOFF:
                 self.state = self.RobotState.approach_objective
                 # Set objective here
                 (self.gameState.objective_x, self.gameState.objective_y) = self.ComputeObjectiveXY()

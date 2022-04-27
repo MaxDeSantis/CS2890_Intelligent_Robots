@@ -99,7 +99,7 @@ class PotentialManager:
         goal_dist = self.Distance(self.gameState.soccerbot_x, self.gameState.soccerbot_y,
                                     self.gameState.objective_x, self.gameState.objective_y)
                                     
-        if abs(goal_dist) <= self.parameterManager.MAX_GOAL_ERROR and f_mag <= self.parameterManager.POTENTIAL_MAG_LOWER_CUTOFF:
+        if abs(goal_dist) <= self.parameterManager.MAX_GOAL_ERROR: #and f_mag <= self.parameterManager.POTENTIAL_MAG_LOWER_CUTOFF:
             acceptable = True
         else:
             acceptable = False
